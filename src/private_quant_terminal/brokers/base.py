@@ -1,25 +1,18 @@
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
 
-from private_quant_terminal.data.models import Candle
-
-from .signal import Signal
+from private_quant_terminal.strategies.signal import Signal
 
 
-class Strategy(ABC):
-    """Base contract for all trading strategies."""
+class Broker(ABC):
+    """Base contract for all broker implementations."""
 
     @property
     @abstractmethod
     def name(self) -> str:
-        """Return the strategy name."""
+        """Return the broker name."""
         raise NotImplementedError
 
     @abstractmethod
-    def generate_signal(
-        self,
-        symbol: str,
-        candles: Sequence[Candle],
-    ) -> Signal:
-        """Generate a trading signal for a symbol."""
+    def execute_signal(self, signal: Signal) -> None:
+        """Execute a trading signal."""
         raise NotImplementedError
