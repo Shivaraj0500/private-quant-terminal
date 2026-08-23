@@ -371,3 +371,66 @@ class TestPositionManager:
 
         assert manager.positions() == ()
         assert manager.realized_pnl() == 0.0
+
+
+class TestPositionManagerOpenPositionCount:
+    def test_returns_zero_when_no_positions_exist(self) -> None:
+        manager = PositionManager()
+
+        assert manager.open_position_count() == 0
+
+    def test_counts_real_open_positions(self) -> None:
+        manager = PositionManager()
+
+        report = ExecutionReport(
+            order_id="ORDER-1",
+            status=OrderStatus.FILLED,
+            filled_quantity=10,
+            remaining_quantity=0,
+            average_price=100.0,
+        )
+
+        manager.apply_execution(
+            symbol="NIFTY",
+            side=OrderSide.BUY,
+            quantity=10,
+            price=100.0,
+            report=report,
+        )
+        manager.apply_execution(
+            symbol="BANKNIFTY",
+            side=OrderSide.SELL,
+            quantity=5,
+            price=200.0,
+            report=report,
+        )
+
+        assert manager.open_position_count() == 2
+
+    def test_closed_position_is_not_counted(self) -> None:
+        manager = PositionManager()
+
+        report = ExecutionReport(
+            order_id="ORDER-1",
+            status=OrderStatus.FILLED,
+            filled_quantity=10,
+            remaining_quantity=0,
+            average_price=100.0,
+        )
+
+        manager.apply_execution(
+            symbol="NIFTY",
+            side=OrderSide.BUY,
+            quantity=10,
+            price=100.0,
+            report=report,
+        )
+        manager.apply_execution(
+            symbol="NIFTY",
+            side=OrderSide.SELL,
+            quantity=10,
+            price=110.0,
+            report=report,
+        )
+
+        assert manager.open_position_count() == 0

@@ -51,6 +51,10 @@ class PositionManager:
         """Return the current position for a symbol."""
         return self._positions.get(symbol)
 
+    def open_position_count(self) -> int:
+        """Return the number of currently open positions."""
+        return len(self._positions)
+
     def positions(self) -> tuple[Position, ...]:
         """Return all currently open positions."""
         return tuple(self._positions.values())
