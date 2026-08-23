@@ -39,3 +39,17 @@ def test_broker_registry_rejects_unknown_broker() -> None:
 
     with pytest.raises(KeyError):
         registry.get("unknown")
+
+
+def test_broker_registry_contains_registered_broker() -> None:
+    registry = BrokerRegistry()
+
+    registry.register("zerodha", DummyBroker())
+
+    assert "zerodha" in registry
+
+
+def test_broker_registry_does_not_contain_unknown_broker() -> None:
+    registry = BrokerRegistry()
+
+    assert "unknown" not in registry

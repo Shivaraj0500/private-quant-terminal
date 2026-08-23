@@ -62,4 +62,4 @@ def test_abstract_average_price_body_raises_not_implemented() -> None:
 
 def test_abstract_unrealized_pnl_body_raises_not_implemented() -> None:
     with pytest.raises(NotImplementedError):
-        BrokerPosition.unrealized_pnl.fget
+        BrokerPosition.unrealized_pnl.fget(None)
