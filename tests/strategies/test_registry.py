@@ -55,12 +55,25 @@ def test_registry_rejects_duplicate_strategy() -> None:
 
     registry.register(DummyStrategy())
 
-    with pytest.raises(ValueError):
+    with pytest.raises(
+        ValueError,
+        match="Strategy already registered: dummy",
+    ):
         registry.register(DummyStrategy())
 
 
 def test_registry_rejects_unknown_strategy() -> None:
     registry = StrategyRegistry()
 
-    with pytest.raises(KeyError):
+    with pytest.raises(
+        KeyError,
+        match="Unknown strategy: unknown",
+    ):
         registry.get("unknown")
+
+
+def test_registry_contains_returns_false_for_non_string() -> None:
+    registry = StrategyRegistry()
+
+    assert 123 not in registry
+    assert None not in registry

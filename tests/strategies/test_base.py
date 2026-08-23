@@ -45,3 +45,17 @@ def test_strategy_generates_signal() -> None:
 def test_base_strategy_cannot_be_instantiated() -> None:
     with pytest.raises(TypeError):
         Strategy()
+
+
+def test_name_abstract_method_body_raises_not_implemented() -> None:
+    with pytest.raises(NotImplementedError):
+        Strategy.name.fget(None)
+
+
+def test_generate_signal_abstract_method_body_raises_not_implemented() -> None:
+    with pytest.raises(NotImplementedError):
+        Strategy.generate_signal(
+            None,
+            "NIFTY",
+            [],
+        )
