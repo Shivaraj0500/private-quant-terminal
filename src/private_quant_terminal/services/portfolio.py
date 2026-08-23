@@ -1,0 +1,42 @@
+from private_quant_terminal.portfolio.position import Position
+from private_quant_terminal.portfolio.position_manager import PositionManager
+from private_quant_terminal.portfolio.risk import PortfolioRisk
+from private_quant_terminal.portfolio.risk_calculator import PortfolioRiskCalculator
+from private_quant_terminal.portfolio.snapshot import PortfolioSnapshot
+from private_quant_terminal.portfolio.valuation import PortfolioValuationService
+
+
+class PortfolioService:
+    """Provide a unified interface for portfolio state and analytics."""
+
+    def __init__(
+        self,
+        position_manager: PositionManager,
+        valuation_service: PortfolioValuationService,
+        risk_calculator: PortfolioRiskCalculator,
+    ) -> None:
+        """Initialize the portfolio service."""
+        self._position_manager = position_manager
+        self._valuation_service = valuation_service
+        self._risk_calculator = risk_calculator
+
+    def positions(self) -> tuple[Position, ...]:
+        """Return all currently open portfolio positions."""
+        return self._position_manager.positions()
+
+    def snapshot(
+        self,
+        prices: dict[str, float],
+    ) -> PortfolioSnapshot:
+        """Return a portfolio snapshot using current market prices."""
+        return self._valuation_service.snapshot(prices)
+
+    def risk(
+        self,
+        prices: dict[str, float],
+    ) -> PortfolioRisk:
+        """Return portfolio risk metrics using current market prices."""
+        return self._risk_calculator.calculate(
+            positions=self._position_manager.positions(),
+            prices=prices,
+        )
