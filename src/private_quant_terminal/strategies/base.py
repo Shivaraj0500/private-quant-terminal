@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 
 from private_quant_terminal.models.candle import Candle
+from private_quant_terminal.strategies.signal import Signal
 
 
 class Strategy(ABC):
@@ -18,6 +19,7 @@ class Strategy(ABC):
         self,
         symbol: str,
         candles: Sequence[Candle],
-    ) -> str:
+    ) -> Signal:
         """Generate a trading signal for a symbol."""
         raise NotImplementedError
+    

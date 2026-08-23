@@ -1,6 +1,7 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from private_quant_terminal.data.repository import CandleRepository
+from private_quant_terminal.models.candle import Candle
 from private_quant_terminal.models.tick import Tick
 from private_quant_terminal.services.market_data import MarketDataService
 
@@ -22,6 +23,22 @@ def make_tick(
         exchange="NSE",
         timestamp=datetime.now(),
         last_price=price,
+        volume=100,
+    )
+
+
+def make_candle(
+    minutes: int,
+    close: float,
+) -> Candle:
+    timestamp = datetime.now() + timedelta(minutes=minutes)
+
+    return Candle(
+        timestamp=timestamp,
+        open=close - 10,
+        high=close + 10,
+        low=close - 20,
+        close=close,
         volume=100,
     )
 
@@ -135,3 +152,58 @@ def test_service_can_handle_multiple_loaded_symbols() -> None:
 
     for symbol in symbols:
         assert service.latest_tick(symbol) is not None
+
+
+def test_get_candles_returns_all_cached_candles() -> None:
+    broker = FakeBrokerProvider()
+    repository = CandleRepository()
+
+    candles = [
+        make_candle(0, 25000.0),
+        make_candle(1, 25100.0),
+        make_candle(2, 25200.0),
+    ]
+
+    repository.save("NIFTY", candles)
+
+    service = MarketDataService(
+        broker,
+        repository,
+    )
+
+    assert service.get_candles("NIFTY") == tuple(candles)
+
+
+def test_get_candles_respects_limit() -> None:
+    broker = FakeBrokerProvider()
+    repository = CandleRepository()
+
+    candles = [
+        make_candle(0, 25000.0),
+        make_candle(1, 25100.0),
+        make_candle(2, 25200.0),
+    ]
+
+    repository.save("NIFTY", candles)
+
+    service = MarketDataService(
+        broker,
+        repository,
+    )
+
+    assert service.get_candles(
+        "NIFTY",
+        limit=2,
+    ) == tuple(candles[-2:])
+
+
+def test_get_candles_returns_empty_tuple_for_unknown_symbol() -> None:
+    broker = FakeBrokerProvider()
+    repository = CandleRepository()
+
+    service = MarketDataService(
+        broker,
+        repository,
+    )
+
+    assert service.get_candles("UNKNOWN") == ()

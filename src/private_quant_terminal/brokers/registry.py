@@ -1,35 +1,28 @@
-from .base import Strategy
+from .base import Broker
 
 
-class StrategyRegistry:
-    """Registry for trading strategies."""
-
+class BrokerRegistry:
     def __init__(self) -> None:
-        self._strategies: dict[str, Strategy] = {}
+        self._brokers: dict[str, Broker] = {}
 
-    def register(self, strategy: Strategy) -> None:
-        """Register a strategy."""
-        name = strategy.name
-
-        if name in self._strategies:
+    def register(self, name: str, broker: Broker) -> None:
+        if name in self._brokers:
             raise ValueError(
-                f"Strategy already registered: {name}"
+                f"Broker already registered: {name}"
             )
 
-        self._strategies[name] = strategy
+        self._brokers[name] = broker
 
-    def get(self, name: str) -> Strategy:
-        """Get a strategy by name."""
+    def get(self, name: str) -> Broker:
         try:
-            return self._strategies[name]
+            return self._brokers[name]
         except KeyError as exc:
             raise KeyError(
-                f"Strategy not found: {name}"
+                f"Broker not found: {name}"
             ) from exc
 
     def names(self) -> list[str]:
-        """Return registered strategy names."""
-        return list(self._strategies.keys())
+        return list(self._brokers.keys())
 
     def __contains__(self, name: str) -> bool:
-        return name in self._strategies
+        return name in self._brokers

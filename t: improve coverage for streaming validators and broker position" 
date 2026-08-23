@@ -1,0 +1,192 @@
+[1mdiff --git a/src/private_quant_terminal/brokers/registry.py b/src/private_quant_terminal/brokers/registry.py[m
+[1mindex 5ded9e8..b54643b 100644[m
+[1m--- a/src/private_quant_terminal/brokers/registry.py[m
+[1m+++ b/src/private_quant_terminal/brokers/registry.py[m
+[36m@@ -1,35 +1,28 @@[m
+[31m-from .base import Strategy[m
+[32m+[m[32mfrom .base import Broker[m
+ [m
+ [m
+[31m-class StrategyRegistry:[m
+[31m-    """Registry for trading strategies."""[m
+[31m-[m
+[32m+[m[32mclass BrokerRegistry:[m
+     def __init__(self) -> None:[m
+[31m-        self._strategies: dict[str, Strategy] = {}[m
+[31m-[m
+[31m-    def register(self, strategy: Strategy) -> None:[m
+[31m-        """Register a strategy."""[m
+[31m-        name = strategy.name[m
+[32m+[m[32m        self._brokers: dict[str, Broker] = {}[m
+ [m
+[31m-        if name in self._strategies:[m
+[32m+[m[32m    def register(self, name: str, broker: Broker) -> None:[m
+[32m+[m[32m        if name in self._brokers:[m
+             raise ValueError([m
+[31m-                f"Strategy already registered: {name}"[m
+[32m+[m[32m                f"Broker already registered: {name}"[m
+             )[m
+ [m
+[31m-        self._strategies[name] = strategy[m
+[32m+[m[32m        self._brokers[name] = broker[m
+ [m
+[31m-    def get(self, name: str) -> Strategy:[m
+[31m-        """Get a strategy by name."""[m
+[32m+[m[32m    def get(self, name: str) -> Broker:[m
+         try:[m
+[31m-            return self._strategies[name][m
+[32m+[m[32m            return self._brokers[name][m
+         except KeyError as exc:[m
+             raise KeyError([m
+[31m-                f"Strategy not found: {name}"[m
+[32m+[m[32m                f"Broker not found: {name}"[m
+             ) from exc[m
+ [m
+     def names(self) -> list[str]:[m
+[31m-        """Return registered strategy names."""[m
+[31m-        return list(self._strategies.keys())[m
+[32m+[m[32m        return list(self._brokers.keys())[m
+ [m
+     def __contains__(self, name: str) -> bool:[m
+[31m-        return name in self._strategies[m
+\ No newline at end of file[m
+[32m+[m[32m        return name in self._brokers[m
+\ No newline at end of file[m
+[1mdiff --git a/src/private_quant_terminal/data/providers/memory.py b/src/private_quant_terminal/data/providers/memory.py[m
+[1mindex ba9abbb..42e2b04 100644[m
+[1m--- a/src/private_quant_terminal/data/providers/memory.py[m
+[1m+++ b/src/private_quant_terminal/data/providers/memory.py[m
+[36m@@ -1,11 +1,8 @@[m
+[31m-from private_quant_terminal.data.providers.base import MarketDataProvider[m
+ from private_quant_terminal.models.candle import Candle[m
+ from private_quant_terminal.models.instrument import Instrument[m
+ [m
+ [m
+[31m-class InMemoryMarketDataProvider(MarketDataProvider):[m
+[31m-    """Simple in-memory market data provider for testing."""[m
+[31m-[m
+[32m+[m[32mclass InMemoryMarketDataProvider:[m
+     def __init__(self) -> None:[m
+         self._instruments: dict[str, Instrument] = {}[m
+         self._candles: dict[tuple[str, str], list[Candle]] = {}[m
+[36m@@ -13,6 +10,9 @@[m [mclass InMemoryMarketDataProvider(MarketDataProvider):[m
+     def add_instrument(self, instrument: Instrument) -> None:[m
+         self._instruments[instrument.symbol] = instrument[m
+ [m
+[32m+[m[32m    def get_instrument(self, symbol: str) -> Instrument | None:[m
+[32m+[m[32m        return self._instruments.get(symbol)[m
+[32m+[m
+     def add_candles([m
+         self,[m
+         symbol: str,[m
+[36m@@ -21,9 +21,6 @@[m [mclass InMemoryMarketDataProvider(MarketDataProvider):[m
+     ) -> None:[m
+         self._candles[(symbol, timeframe)] = candles[m
+ [m
+[31m-    def get_instrument(self, symbol: str) -> Instrument:[m
+[31m-        return self._instruments[symbol][m
+[31m-[m
+     def get_candles([m
+         self,[m
+         symbol: str,[m
+[36m@@ -31,4 +28,4 @@[m [mclass InMemoryMarketDataProvider(MarketDataProvider):[m
+         limit: int,[m
+     ) -> list[Candle]:[m
+         candles = self._candles.get((symbol, timeframe), [])[m
+[31m-        return candles[-limit:][m
+[32m+[m[32m        return candles[-limit:][m
+\ No newline at end of file[m
+[1mdiff --git a/src/private_quant_terminal/services/market_data.py b/src/private_quant_terminal/services/market_data.py[m
+[1mindex 9431c9c..7307d25 100644[m
+[1m--- a/src/private_quant_terminal/services/market_data.py[m
+[1m+++ b/src/private_quant_terminal/services/market_data.py[m
+[36m@@ -2,9 +2,12 @@[m
+ [m
+ from collections.abc import Sequence[m
+ [m
+[31m-from private_quant_terminal.data.providers.broker_base import BrokerMarketDataProvider[m
+[32m+[m[32mfrom private_quant_terminal.data.providers.broker_base import ([m
+[32m+[m[32m    BrokerMarketDataProvider,[m
+[32m+[m[32m)[m
+ from private_quant_terminal.data.repository import CandleRepository[m
+ from private_quant_terminal.models.candle import Candle[m
+[32m+[m[32mfrom private_quant_terminal.models.quote import Quote[m
+ from private_quant_terminal.models.tick import Tick[m
+ [m
+ [m
+[36m@@ -21,8 +24,8 @@[m [mclass MarketDataService:[m
+         self._candle_repository = candle_repository[m
+         self._latest_ticks: dict[str, Tick] = {}[m
+ [m
+[31m-    def get_latest_tick(self, symbol: str) -> Tick:[m
+[31m-        """Return the latest market tick from the provider."""[m
+[32m+[m[32m    def get_latest_quote(self, symbol: str) -> Quote:[m
+[32m+[m[32m        """Return the latest market quote from the provider."""[m
+         return self._provider.get_quote(symbol)[m
+ [m
+     def get_candles([m
+[36m@@ -31,7 +34,7 @@[m [mclass MarketDataService:[m
+         limit: int | None = None,[m
+     ) -> Sequence[Candle]:[m
+         """Return cached candles for a symbol."""[m
+[31m-        candles = self._candle_repository.get_candles(symbol)[m
+[32m+[m[32m        candles = self._candle_repository.get_all(symbol)[m
+ [m
+         if limit is not None:[m
+             return tuple(candles[-limit:])[m
+[1mdiff --git a/src/private_quant_terminal/strategies/base.py b/src/private_quant_terminal/strategies/base.py[m
+[1mindex c316671..1b70df2 100644[m
+[1m--- a/src/private_quant_terminal/strategies/base.py[m
+[1m+++ b/src/private_quant_terminal/strategies/base.py[m
+[36m@@ -2,6 +2,7 @@[m [mfrom abc import ABC, abstractmethod[m
+ from collections.abc import Sequence[m
+ [m
+ from private_quant_terminal.models.candle import Candle[m
+[32m+[m[32mfrom private_quant_terminal.strategies.signal import Signal[m
+ [m
+ [m
+ class Strategy(ABC):[m
+[36m@@ -18,6 +19,7 @@[m [mclass Strategy(ABC):[m
+         self,[m
+         symbol: str,[m
+         candles: Sequence[Candle],[m
+[31m-    ) -> str:[m
+[32m+[m[32m    ) -> Signal:[m
+         """Generate a trading signal for a symbol."""[m
+[31m-        raise NotImplementedError[m
+\ No newline at end of file[m
+[32m+[m[32m        raise NotImplementedError[m
+[41m+    [m
+\ No newline at end of file[m
+[1mdiff --git a/tests/analytics/test_indicators.py b/tests/analytics/test_indicators.py[m
+[1mindex 369eafb..f376896 100644[m
+[1m--- a/tests/analytics/test_indicators.py[m
+[1m+++ b/tests/analytics/test_indicators.py[m
+[36m@@ -1,6 +1,8 @@[m
+ import pytest[m
+ [m
+ from private_quant_terminal.analytics.indicators import ([m
+[32m+[m[32m    _calculate_rsi,[m
+[32m+[m[32m    _validate_enough_values,[m
+     atr,[m
+     ema,[m
+     rsi,[m
+[36m@@ -108,4 +110,48 @@[m [mclass TestATR:[m
+                 lows=[10, 11],[m
+                 closes=[11, 12],[m
+                 period=3,[m
+[31m-            )[m
+\ No newline at end of file[m
+[32m+[m[32m            )[m
+[32m+[m
+[32m+[m
+[32m+[m[32mclass TestCalculateRSI:[m
+[32m+[m[32m    def test_returns_100_when_average_loss_is_zero(self) -> None:[m
+[32m+[m[32m        result = _calculate_rsi([m
+[32m+[m[32m            average_gain=5.0,[m
+[32m+[m[32m            average_loss=0.0,[m
+[32m+[m[32m        )[m
+[32m+[m
+[32m+[m[32m        assert result == 100.0[m
+[32m+[m
+[32m+[m[32m    def test_returns_0_when_average_gain_is_zer

@@ -2,9 +2,12 @@
 
 from collections.abc import Sequence
 
-from private_quant_terminal.data.providers.broker_base import BrokerMarketDataProvider
+from private_quant_terminal.data.providers.broker_base import (
+    BrokerMarketDataProvider,
+)
 from private_quant_terminal.data.repository import CandleRepository
 from private_quant_terminal.models.candle import Candle
+from private_quant_terminal.models.quote import Quote
 from private_quant_terminal.models.tick import Tick
 
 
@@ -21,8 +24,8 @@ class MarketDataService:
         self._candle_repository = candle_repository
         self._latest_ticks: dict[str, Tick] = {}
 
-    def get_latest_tick(self, symbol: str) -> Tick:
-        """Return the latest market tick from the provider."""
+    def get_latest_quote(self, symbol: str) -> Quote:
+        """Return the latest market quote from the provider."""
         return self._provider.get_quote(symbol)
 
     def get_candles(
@@ -31,7 +34,7 @@ class MarketDataService:
         limit: int | None = None,
     ) -> Sequence[Candle]:
         """Return cached candles for a symbol."""
-        candles = self._candle_repository.get_candles(symbol)
+        candles = self._candle_repository.get_all(symbol)
 
         if limit is not None:
             return tuple(candles[-limit:])

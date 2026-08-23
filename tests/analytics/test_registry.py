@@ -25,3 +25,17 @@ class TestIndicatorRegistry:
 
         with pytest.raises(ValueError):
             registry.register("", object())
+
+    def test_registry_rejects_duplicate_name(self) -> None:
+        registry = IndicatorRegistry()
+
+        registry.register("sma", object())
+
+        with pytest.raises(ValueError):
+            registry.register("sma", object())
+
+    def test_registry_rejects_unknown_indicator(self) -> None:
+        registry = IndicatorRegistry()
+
+        with pytest.raises(KeyError):
+            registry.get("unknown")
