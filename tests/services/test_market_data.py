@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 
 from private_quant_terminal.data.repository import CandleRepository
 from private_quant_terminal.models.candle import Candle
+from private_quant_terminal.models.quote import Quote
 from private_quant_terminal.models.tick import Tick
 from private_quant_terminal.services.market_data import MarketDataService
 
@@ -9,6 +10,10 @@ from private_quant_terminal.services.market_data import MarketDataService
 class FakeBrokerProvider:
     def __init__(self) -> None:
         self.streamed_symbols: list[str] = []
+        self.quotes: dict[str, Quote] = {}
+
+    def get_quote(self, symbol: str) -> Quote:
+        return self.quotes[symbol]
 
     def stream_ticks(self, symbols: list[str]) -> None:
         self.streamed_symbols.extend(symbols)
@@ -73,7 +78,7 @@ def test_loaded_symbols_returns_symbols_with_tick_data() -> None:
     )
 
 
-def test_clear_symbol_removes_cached_candles_and_tick() -> None:
+def test_update_tick_replaces_existing_tick_for_symbol() -> None:
     broker = FakeBrokerProvider()
     repository = CandleRepository()
 
@@ -82,15 +87,58 @@ def test_clear_symbol_removes_cached_candles_and_tick() -> None:
         repository,
     )
 
-    tick = make_tick(symbol="NIFTY")
+    first_tick = make_tick(
+        symbol="NIFTY",
+        price=25000.0,
+    )
+    latest_tick = make_tick(
+        symbol="NIFTY",
+        price=25100.0,
+    )
 
+    service.update_tick(first_tick)
+    service.update_tick(latest_tick)
+
+    assert service.latest_tick("NIFTY") is latest_tick
+    assert service.loaded_symbols() == ("NIFTY",)
+
+
+def test_latest_tick_returns_none_for_unknown_symbol() -> None:
+    broker = FakeBrokerProvider()
+    repository = CandleRepository()
+
+    service = MarketDataService(
+        broker,
+        repository,
+    )
+
+    assert service.latest_tick("UNKNOWN") is None
+
+
+def test_clear_symbol_removes_cached_candles_and_tick() -> None:
+    broker = FakeBrokerProvider()
+    repository = CandleRepository()
+
+    candles = [
+        make_candle(0, 25000.0),
+        make_candle(1, 25100.0),
+    ]
+    repository.save("NIFTY", candles)
+
+    service = MarketDataService(
+        broker,
+        repository,
+    )
+
+    tick = make_tick(symbol="NIFTY")
     service.update_tick(tick)
 
-    assert service.latest_tick("NIFTY") == tick
-    assert service.loaded_symbols() == ("NIFTY",)
+    assert service.get_candles("NIFTY") == tuple(candles)
+    assert service.latest_tick("NIFTY") is tick
 
     service.clear_symbol("NIFTY")
 
+    assert service.get_candles("NIFTY") == ()
     assert service.latest_tick("NIFTY") is None
     assert service.loaded_symbols() == ()
 
@@ -120,7 +168,7 @@ def test_clear_symbol_does_not_affect_other_symbols() -> None:
     service.clear_symbol("NIFTY")
 
     assert service.latest_tick("NIFTY") is None
-    assert service.latest_tick("BANKNIFTY") == banknifty_tick
+    assert service.latest_tick("BANKNIFTY") is banknifty_tick
     assert service.loaded_symbols() == ("BANKNIFTY",)
 
 
@@ -197,6 +245,28 @@ def test_get_candles_respects_limit() -> None:
     ) == tuple(candles[-2:])
 
 
+def test_get_candles_with_limit_larger_than_collection() -> None:
+    broker = FakeBrokerProvider()
+    repository = CandleRepository()
+
+    candles = [
+        make_candle(0, 25000.0),
+        make_candle(1, 25100.0),
+    ]
+
+    repository.save("NIFTY", candles)
+
+    service = MarketDataService(
+        broker,
+        repository,
+    )
+
+    assert service.get_candles(
+        "NIFTY",
+        limit=10,
+    ) == tuple(candles)
+
+
 def test_get_candles_returns_empty_tuple_for_unknown_symbol() -> None:
     broker = FakeBrokerProvider()
     repository = CandleRepository()
@@ -207,3 +277,24 @@ def test_get_candles_returns_empty_tuple_for_unknown_symbol() -> None:
     )
 
     assert service.get_candles("UNKNOWN") == ()
+
+
+def test_get_latest_quote_returns_quote_from_provider() -> None:
+    broker = FakeBrokerProvider()
+    repository = CandleRepository()
+
+    quote = Quote(
+        symbol="NIFTY",
+        exchange="NSE",
+        timestamp=datetime.now(),
+        last_price=25000.0,
+    )
+
+    broker.quotes["NIFTY"] = quote
+
+    service = MarketDataService(
+        broker,
+        repository,
+    )
+
+    assert service.get_latest_quote("NIFTY") is quote
