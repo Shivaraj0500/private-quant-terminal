@@ -16,11 +16,6 @@ class TestAverageTrueRange:
             period=3,
         )
 
-        # TR values:
-        # First = 10 - 8 = 2
-        # Second = max(12 - 10, abs(12 - 9), abs(10 - 9)) = 3
-        # Third = max(14 - 12, abs(14 - 11), abs(12 - 11)) = 3
-        # ATR = (2 + 3 + 3) / 3
         assert result == pytest.approx(8.0 / 3.0)
 
     def test_uses_previous_close_in_true_range(self) -> None:
@@ -31,10 +26,7 @@ class TestAverageTrueRange:
             period=2,
         )
 
-        # First TR = 10 - 8 = 2
-        # Second TR = max(15 - 13, abs(15 - 9), abs(13 - 9)) = 6
-        # ATR = (2 + 6) / 2 = 4
-        assert result == 4.0
+        assert result == pytest.approx(4.0)
 
     def test_uses_most_recent_periods(self) -> None:
         result = average_true_range(
@@ -44,10 +36,7 @@ class TestAverageTrueRange:
             period=2,
         )
 
-        # TR values are 2, 3, 3, 3.
-        # The most recent two True Range values are 3 and 3.
-        # ATR = (3 + 3) / 2 = 3.
-        assert result == 3.0
+        assert result == pytest.approx(3.0)
 
     def test_requires_matching_lengths(self) -> None:
         with pytest.raises(
@@ -95,6 +84,23 @@ class TestHistoricalVolatility:
         )
 
         assert result == pytest.approx(0.0)
+
+    def test_applies_annualization_factor(self) -> None:
+        base_result = historical_volatility(
+            closes=[100.0, 110.0, 100.0],
+            period=2,
+            annualization_factor=1,
+        )
+
+        annualized_result = historical_volatility(
+            closes=[100.0, 110.0, 100.0],
+            period=2,
+            annualization_factor=4,
+        )
+
+        assert annualized_result == pytest.approx(
+            base_result * 2
+        )
 
     def test_requires_enough_closes(self) -> None:
         with pytest.raises(
@@ -146,9 +152,16 @@ class TestStandardDeviation:
 
         assert result == pytest.approx(2.0)
 
+    def test_calculates_zero_for_identical_values(self) -> None:
+        result = standard_deviation(
+            [5.0, 5.0, 5.0]
+        )
+
+        assert result == pytest.approx(0.0)
+
     def test_requires_at_least_two_values(self) -> None:
         with pytest.raises(
             ValueError,
             match="at least two values are required",
         ):
-            standard_deviation([100.0])
+            standard_deviation([1.0])

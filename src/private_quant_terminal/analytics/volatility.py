@@ -31,10 +31,14 @@ def average_true_range(
         raise ValueError("period must be greater than zero")
 
     if len(highs) != len(lows) or len(highs) != len(closes):
-        raise ValueError("highs, lows, and closes must have matching lengths")
+        raise ValueError(
+            "highs, lows, and closes must have matching lengths"
+        )
 
     if len(highs) < period:
-        raise ValueError("not enough price data for the requested period")
+        raise ValueError(
+            "not enough price data for the requested period"
+        )
 
     true_ranges: list[float] = []
 
@@ -73,7 +77,9 @@ def historical_volatility(
         raise ValueError("period must be greater than zero")
 
     if annualization_factor <= 0:
-        raise ValueError("annualization_factor must be greater than zero")
+        raise ValueError(
+            "annualization_factor must be greater than zero"
+        )
 
     if len(closes) < period + 1:
         raise ValueError(
@@ -83,14 +89,19 @@ def historical_volatility(
     recent_closes = closes[-(period + 1):]
 
     if any(close <= 0 for close in recent_closes):
-        raise ValueError("close prices must be greater than zero")
+        raise ValueError(
+            "close prices must be greater than zero"
+        )
 
     log_returns = [
         log(recent_closes[index] / recent_closes[index - 1])
         for index in range(1, len(recent_closes))
     ]
 
-    return standard_deviation(log_returns) * sqrt(annualization_factor)
+    return (
+        standard_deviation(log_returns)
+        * sqrt(annualization_factor)
+    )
 
 
 def standard_deviation(values: Sequence[float]) -> float:
