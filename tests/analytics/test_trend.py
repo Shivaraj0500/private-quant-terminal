@@ -73,6 +73,16 @@ class TestMovingAverages:
                 period=3,
             )
 
+    def test_ema_rejects_invalid_period(self) -> None:
+        with pytest.raises(
+            ValueError,
+            match="period must be greater than zero",
+        ):
+            ema(
+                [10.0, 20.0, 30.0],
+                period=0,
+            )
+
 
 class TestTrendDetection:
     def test_detects_bullish_trend(self) -> None:
