@@ -1,41 +1,54 @@
-from dataclasses import dataclass
+from __future__ import annotations
+
+from typing import Sequence
 
 
-@dataclass(frozen=True)
-class Returns:
-    """Represents return calculations for an investment."""
+def simple_returns(prices: Sequence[float]) -> tuple[float, ...]:
+    """Calculate simple period-to-period returns from prices."""
+    if len(prices) < 2:
+        raise ValueError("at least two prices are required")
 
-    initial_value: float
-    current_value: float
+    if any(price <= 0 for price in prices):
+        raise ValueError("prices must be greater than zero")
 
-    @property
-    def profit_loss(self) -> float:
-        """Return the absolute profit or loss."""
-        return self.current_value - self.initial_value
+    return tuple(
+        (current_price - previous_price) / previous_price
+        for previous_price, current_price in zip(prices, prices[1:])
+    )
 
-    @property
-    def return_percentage(self) -> float:
-        """Return the percentage return."""
-        if self.initial_value == 0:
-            raise ValueError(
-                "initial_value must not be zero"
-            )
 
-        return (
-            self.profit_loss / self.initial_value
-        ) * 100
+def cumulative_return(returns: Sequence[float]) -> float:
+    """Calculate the compounded cumulative return."""
+    if len(returns) == 0:
+        raise ValueError("at least one return is required")
 
-    @property
-    def is_profit(self) -> bool:
-        """Return whether the investment is profitable."""
-        return self.profit_loss > 0
+    compounded = 1.0
 
-    @property
-    def is_loss(self) -> bool:
-        """Return whether the investment is making a loss."""
-        return self.profit_loss < 0
+    for period_return in returns:
+        compounded *= 1.0 + period_return
 
-    @property
-    def is_break_even(self) -> bool:
-        """Return whether the investment is at break-even."""
-        return self.profit_loss == 0
+    return compounded - 1.0
+
+
+def average_return(returns: Sequence[float]) -> float:
+    """Calculate the arithmetic average return."""
+    if len(returns) == 0:
+        raise ValueError("at least one return is required")
+
+    return sum(returns) / len(returns)
+
+
+def geometric_average_return(returns: Sequence[float]) -> float:
+    """Calculate the geometric average return."""
+    if len(returns) == 0:
+        raise ValueError("at least one return is required")
+
+    compounded = 1.0
+
+    for period_return in returns:
+        if period_return <= -1.0:
+            raise ValueError("returns must be greater than -1")
+
+        compounded *= 1.0 + period_return
+
+    return compounded ** (1.0 / len(returns)) - 1.0
