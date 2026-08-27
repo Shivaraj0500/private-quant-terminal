@@ -434,3 +434,248 @@ class TestPositionManagerOpenPositionCount:
         )
 
         assert manager.open_position_count() == 0
+
+    def test_manages_complete_long_position_lifecycle(self) -> None:
+        manager = PositionManager()
+
+        first_position = manager.apply_execution(
+            symbol="NIFTY",
+            side=OrderSide.BUY,
+            quantity=10,
+            price=100.0,
+            report=make_report(),
+        )
+
+        assert first_position is not None
+        assert first_position.quantity == 10
+        assert first_position.average_price == 100.0
+        assert manager.realized_pnl() == 0.0
+
+        second_position = manager.apply_execution(
+            symbol="NIFTY",
+            side=OrderSide.BUY,
+            quantity=10,
+            price=120.0,
+            report=make_report(),
+        )
+
+        assert second_position is not None
+        assert second_position.quantity == 20
+        assert second_position.average_price == 110.0
+        assert manager.realized_pnl() == 0.0
+
+        third_position = manager.apply_execution(
+            symbol="NIFTY",
+            side=OrderSide.SELL,
+            quantity=5,
+            price=130.0,
+            report=make_report(),
+        )
+
+        assert third_position is not None
+        assert third_position.quantity == 15
+        assert third_position.average_price == 110.0
+        assert manager.realized_pnl() == 100.0
+
+        final_position = manager.apply_execution(
+            symbol="NIFTY",
+            side=OrderSide.SELL,
+            quantity=15,
+            price=90.0,
+            report=make_report(),
+        )
+
+        assert final_position is None
+        assert manager.get_position("NIFTY") is None
+        assert manager.positions() == ()
+        assert manager.open_position_count() == 0
+
+        assert manager.realized_pnl() == -200.0
+
+class TestPositionManagerClosedTrades:
+    def test_starts_with_no_closed_trades(self) -> None:
+        manager = PositionManager()
+
+        assert manager.closed_trades() == ()
+        assert manager.closed_trade_count() == 0
+
+    def test_records_closed_trade_when_long_position_is_fully_closed(
+        self,
+    ) -> None:
+        manager = PositionManager()
+
+        manager.apply_execution(
+            symbol="NIFTY",
+            side=OrderSide.BUY,
+            quantity=10,
+            price=100.0,
+            report=make_report(),
+        )
+
+        manager.apply_execution(
+            symbol="NIFTY",
+            side=OrderSide.SELL,
+            quantity=10,
+            price=120.0,
+            report=make_report(),
+        )
+
+        trades = manager.closed_trades()
+
+        assert len(trades) == 1
+        assert manager.closed_trade_count() == 1
+
+        trade = trades[0]
+
+        assert trade.symbol == "NIFTY"
+        assert trade.quantity == 10
+        assert trade.entry_price == 100.0
+        assert trade.exit_price == 120.0
+        assert trade.realized_pnl == 200.0
+
+    def test_records_closed_trade_when_short_position_is_fully_closed(
+        self,
+    ) -> None:
+        manager = PositionManager()
+
+        manager.apply_execution(
+            symbol="NIFTY",
+            side=OrderSide.SELL,
+            quantity=10,
+            price=120.0,
+            report=make_report(),
+        )
+
+        manager.apply_execution(
+            symbol="NIFTY",
+            side=OrderSide.BUY,
+            quantity=10,
+            price=100.0,
+            report=make_report(),
+        )
+
+        trades = manager.closed_trades()
+
+        assert len(trades) == 1
+
+        trade = trades[0]
+
+        assert trade.symbol == "NIFTY"
+        assert trade.quantity == 10
+        assert trade.entry_price == 120.0
+        assert trade.exit_price == 100.0
+        assert trade.realized_pnl == 200.0
+
+    def test_records_each_partial_close_as_a_closed_trade(
+        self,
+    ) -> None:
+        manager = PositionManager()
+
+        manager.apply_execution(
+            symbol="NIFTY",
+            side=OrderSide.BUY,
+            quantity=10,
+            price=100.0,
+            report=make_report(),
+        )
+
+        manager.apply_execution(
+            symbol="NIFTY",
+            side=OrderSide.SELL,
+            quantity=4,
+            price=120.0,
+            report=make_report(),
+        )
+
+        manager.apply_execution(
+            symbol="NIFTY",
+            side=OrderSide.SELL,
+            quantity=6,
+            price=130.0,
+            report=make_report(),
+        )
+
+        trades = manager.closed_trades()
+
+        assert len(trades) == 2
+        assert manager.closed_trade_count() == 2
+
+        assert trades[0].quantity == 4
+        assert trades[0].entry_price == 100.0
+        assert trades[0].exit_price == 120.0
+        assert trades[0].realized_pnl == 80.0
+
+        assert trades[1].quantity == 6
+        assert trades[1].entry_price == 100.0
+        assert trades[1].exit_price == 130.0
+        assert trades[1].realized_pnl == 180.0
+
+        assert manager.realized_pnl() == 260.0
+
+    def test_records_closed_portion_when_position_reverses(
+        self,
+    ) -> None:
+        manager = PositionManager()
+
+        manager.apply_execution(
+            symbol="NIFTY",
+            side=OrderSide.BUY,
+            quantity=10,
+            price=100.0,
+            report=make_report(),
+        )
+
+        position = manager.apply_execution(
+            symbol="NIFTY",
+            side=OrderSide.SELL,
+            quantity=15,
+            price=120.0,
+            report=make_report(),
+        )
+
+        assert position is not None
+        assert position.quantity == -5
+        assert position.average_price == 120.0
+
+        trades = manager.closed_trades()
+
+        assert len(trades) == 1
+
+        trade = trades[0]
+
+        assert trade.symbol == "NIFTY"
+        assert trade.quantity == 10
+        assert trade.entry_price == 100.0
+        assert trade.exit_price == 120.0
+        assert trade.realized_pnl == 200.0
+
+        assert manager.realized_pnl() == 200.0
+
+    def test_clear_removes_closed_trade_history(
+        self,
+    ) -> None:
+        manager = PositionManager()
+
+        manager.apply_execution(
+            symbol="NIFTY",
+            side=OrderSide.BUY,
+            quantity=10,
+            price=100.0,
+            report=make_report(),
+        )
+
+        manager.apply_execution(
+            symbol="NIFTY",
+            side=OrderSide.SELL,
+            quantity=10,
+            price=120.0,
+            report=make_report(),
+        )
+
+        assert manager.closed_trade_count() == 1
+
+        manager.clear()
+
+        assert manager.closed_trades() == ()
+        assert manager.closed_trade_count() == 0
+        assert manager.realized_pnl() == 0.0

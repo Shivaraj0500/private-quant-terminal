@@ -1,15 +1,17 @@
 from private_quant_terminal.brokers.execution_report import ExecutionReport
 from private_quant_terminal.brokers.order_side import OrderSide
 from private_quant_terminal.brokers.order_status import OrderStatus
+from private_quant_terminal.portfolio.closed_trade import ClosedTrade
 from private_quant_terminal.portfolio.position import Position
 
 
 class PositionManager:
-    """Manage portfolio positions from completed broker executions."""
+    """Manage portfolio positions and completed trades from broker executions."""
 
     def __init__(self) -> None:
         """Initialize an empty position manager."""
         self._positions: dict[str, Position] = {}
+        self._closed_trades: list[ClosedTrade] = []
         self._realized_pnl: float = 0.0
 
     def apply_execution(
@@ -59,13 +61,22 @@ class PositionManager:
         """Return all currently open positions."""
         return tuple(self._positions.values())
 
+    def closed_trades(self) -> tuple[ClosedTrade, ...]:
+        """Return all completed closed trades."""
+        return tuple(self._closed_trades)
+
+    def closed_trade_count(self) -> int:
+        """Return the number of completed closed trades."""
+        return len(self._closed_trades)
+
     def realized_pnl(self) -> float:
         """Return total realized profit and loss."""
         return self._realized_pnl
 
     def clear(self) -> None:
-        """Clear all positions and realized profit and loss."""
+        """Clear positions, closed trades, and realized profit and loss."""
         self._positions.clear()
+        self._closed_trades.clear()
         self._realized_pnl = 0.0
 
     def _open_position(
@@ -129,11 +140,23 @@ class PositionManager:
             abs(signed_quantity),
         )
 
-        self._realized_pnl += self._calculate_realized_pnl(
+        realized_pnl = self._calculate_realized_pnl(
             current_quantity=current_quantity,
             average_price=position.average_price,
             quantity=closing_quantity,
             exit_price=price,
+        )
+
+        self._realized_pnl += realized_pnl
+
+        self._closed_trades.append(
+            ClosedTrade(
+                symbol=position.symbol,
+                quantity=closing_quantity,
+                entry_price=position.average_price,
+                exit_price=price,
+                realized_pnl=realized_pnl,
+            )
         )
 
         if new_quantity == 0:
