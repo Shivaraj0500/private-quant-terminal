@@ -5,6 +5,9 @@ from private_quant_terminal.brokers.execution_report import (
 )
 from private_quant_terminal.brokers.order_side import OrderSide
 from private_quant_terminal.brokers.order_status import OrderStatus
+from private_quant_terminal.portfolio.drawdown import (
+    DrawdownCalculator,
+)
 from private_quant_terminal.portfolio.performance_calculator import (
     PortfolioPerformanceCalculator,
 )
@@ -39,6 +42,7 @@ class TestPortfolioService:
             ),
             risk_calculator=PortfolioRiskCalculator(),
             performance_calculator=PortfolioPerformanceCalculator(),
+            drawdown_calculator=DrawdownCalculator(),
         )
 
     def test_returns_positions(
@@ -124,3 +128,30 @@ class TestPortfolioService:
             match="Missing market price for symbol: NIFTY",
         ):
             service.risk({})
+
+    def test_returns_portfolio_drawdown(
+        self,
+        service: PortfolioService,
+    ) -> None:
+        drawdown = service.drawdown(
+            peak_value=100000.0,
+            current_value=85000.0,
+        )
+
+        assert drawdown.peak_value == 100000.0
+        assert drawdown.current_value == 85000.0
+        assert drawdown.drawdown == 15000.0
+        assert drawdown.drawdown_percent == 15.0
+
+    def test_rejects_invalid_drawdown_peak(
+        self,
+        service: PortfolioService,
+    ) -> None:
+        with pytest.raises(
+            ValueError,
+            match="peak_value must be greater than zero",
+        ):
+            service.drawdown(
+                peak_value=0.0,
+                current_value=1000.0,
+            )

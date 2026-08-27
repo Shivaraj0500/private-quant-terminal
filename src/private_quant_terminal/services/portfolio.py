@@ -1,4 +1,8 @@
 from private_quant_terminal.portfolio.closed_trade import ClosedTrade
+from private_quant_terminal.portfolio.drawdown import (
+    DrawdownCalculator,
+    DrawdownMetrics,
+)
 from private_quant_terminal.portfolio.metrics import (
     PortfolioMetrics,
     calculate_metrics,
@@ -28,12 +32,14 @@ class PortfolioService:
         valuation_service: PortfolioValuationService,
         risk_calculator: PortfolioRiskCalculator,
         performance_calculator: PortfolioPerformanceCalculator,
+        drawdown_calculator: DrawdownCalculator,
     ) -> None:
         """Initialize the portfolio service."""
         self._position_manager = position_manager
         self._valuation_service = valuation_service
         self._risk_calculator = risk_calculator
         self._performance_calculator = performance_calculator
+        self._drawdown_calculator = drawdown_calculator
 
     def positions(self) -> tuple[Position, ...]:
         """Return all currently open portfolio positions."""
@@ -71,4 +77,15 @@ class PortfolioService:
         """Return trading performance calculated from closed trades."""
         return self._performance_calculator.calculate(
             closed_trades=self._position_manager.closed_trades(),
+        )
+
+    def drawdown(
+        self,
+        peak_value: float,
+        current_value: float,
+    ) -> DrawdownMetrics:
+        """Return portfolio drawdown metrics."""
+        return self._drawdown_calculator.calculate(
+            peak_value=peak_value,
+            current_value=current_value,
         )
