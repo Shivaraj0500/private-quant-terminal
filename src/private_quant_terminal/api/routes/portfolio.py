@@ -6,6 +6,8 @@ from private_quant_terminal.api.schemas.portfolio import (
     PortfolioDrawdownRequest,
     PortfolioDrawdownResponse,
     PortfolioPerformanceRequest,
+    PortfolioRollingDrawdownRequest,
+    PortfolioRollingDrawdownResponse,
     PortfolioRollingPerformanceRequest,
     PortfolioRollingPerformanceResponse,
     PortfolioPerformanceResponse,
@@ -263,4 +265,34 @@ def get_portfolio_rolling_performance(
         rolling_volatility=list(metrics.rolling_volatility),
         rolling_drawdown=list(metrics.rolling_drawdown),
         rolling_max_drawdown=list(metrics.rolling_max_drawdown),
+    )
+
+
+@router.post(
+    "/rolling-drawdown",
+    response_model=PortfolioRollingDrawdownResponse,
+)
+def get_portfolio_rolling_drawdown(
+    rolling_request: PortfolioRollingDrawdownRequest,
+    request: Request,
+) -> PortfolioRollingDrawdownResponse:
+    """Return rolling portfolio drawdown analytics."""
+    container: ApplicationContainer = request.app.state.container
+
+    try:
+        drawdown, max_drawdown = (
+            container.portfolio_service.rolling_drawdown(
+                values=tuple(rolling_request.values),
+                window=rolling_request.window,
+            )
+        )
+    except ValueError as error:
+        raise HTTPException(
+            status_code=422,
+            detail=str(error),
+        ) from error
+
+    return PortfolioRollingDrawdownResponse(
+        rolling_drawdown=list(drawdown),
+        rolling_max_drawdown=list(max_drawdown),
     )

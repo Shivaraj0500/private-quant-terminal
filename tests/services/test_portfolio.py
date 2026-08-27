@@ -253,3 +253,43 @@ class TestPortfolioService:
                 returns=(0.10, 0.05),
                 window=0,
             )
+
+    def test_returns_rolling_drawdown_metrics(
+        self,
+        service: PortfolioService,
+    ) -> None:
+        drawdown, max_drawdown = service.rolling_drawdown(
+            values=(
+                100.0,
+                120.0,
+                90.0,
+                110.0,
+            ),
+            window=3,
+        )
+
+        assert drawdown == pytest.approx(
+            (
+                -0.25,
+                -0.08333333333333333,
+            )
+        )
+        assert max_drawdown == pytest.approx(
+            (
+                -0.25,
+                -0.25,
+            )
+        )
+
+    def test_rejects_invalid_rolling_drawdown_window(
+        self,
+        service: PortfolioService,
+    ) -> None:
+        with pytest.raises(
+            ValueError,
+            match="window must be greater than zero",
+        ):
+            service.rolling_drawdown(
+                values=(100.0, 120.0),
+                window=0,
+            )

@@ -101,3 +101,13 @@ class PortfolioRollingPerformanceResponse(BaseModel):
     rolling_volatility: list[float]
     rolling_drawdown: list[float]
     rolling_max_drawdown: list[float]
+
+
+class PortfolioRollingDrawdownRequest(BaseModel):
+    values: list[float] = Field(default_factory=list)
+    window: int
+
+
+class PortfolioRollingDrawdownResponse(BaseModel):
+    rolling_drawdown: list[float]
+    rolling_max_drawdown: list[float]

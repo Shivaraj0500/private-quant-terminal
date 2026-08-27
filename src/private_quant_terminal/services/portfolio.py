@@ -21,6 +21,10 @@ from private_quant_terminal.portfolio.risk_adjusted import (
 from private_quant_terminal.portfolio.risk_calculator import (
     PortfolioRiskCalculator,
 )
+from private_quant_terminal.portfolio.rolling_drawdown import (
+    rolling_drawdown,
+    rolling_max_drawdown,
+)
 from private_quant_terminal.portfolio.rolling_performance import (
     PortfolioRollingMetrics,
     calculate_rolling_metrics,
@@ -106,6 +110,23 @@ class PortfolioService:
         return calculate_rolling_metrics(
             returns=returns,
             window=window,
+        )
+
+    def rolling_drawdown(
+        self,
+        values: tuple[float, ...],
+        window: int,
+    ) -> tuple[tuple[float, ...], tuple[float, ...]]:
+        """Return rolling drawdown and maximum drawdown analytics."""
+        return (
+            rolling_drawdown(
+                values=values,
+                window=window,
+            ),
+            rolling_max_drawdown(
+                values=values,
+                window=window,
+            ),
         )
 
     def trading_performance(self) -> PerformanceSnapshot:
