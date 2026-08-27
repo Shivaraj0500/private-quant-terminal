@@ -62,3 +62,15 @@ class PortfolioPerformanceResponse(BaseModel):
     best_return: float
     worst_return: float
     volatility: float
+
+
+class PortfolioDrawdownRequest(BaseModel):
+    peak_value: float
+    current_value: float
+
+
+class PortfolioDrawdownResponse(BaseModel):
+    peak_value: float
+    current_value: float
+    drawdown: float
+    drawdown_percent: float

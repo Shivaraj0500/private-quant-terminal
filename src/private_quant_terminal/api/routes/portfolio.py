@@ -3,6 +3,8 @@ from fastapi import APIRouter, HTTPException, Request
 from private_quant_terminal.api.container import ApplicationContainer
 from private_quant_terminal.api.schemas.portfolio import (
     ClosedTradeResponse,
+    PortfolioDrawdownRequest,
+    PortfolioDrawdownResponse,
     PortfolioPerformanceRequest,
     PortfolioPerformanceResponse,
     PortfolioRiskRequest,
@@ -170,4 +172,34 @@ def get_portfolio_performance(
         best_return=performance.best_return,
         worst_return=performance.worst_return,
         volatility=performance.volatility,
+    )
+
+
+@router.post(
+    "/drawdown",
+    response_model=PortfolioDrawdownResponse,
+)
+def get_portfolio_drawdown(
+    drawdown_request: PortfolioDrawdownRequest,
+    request: Request,
+) -> PortfolioDrawdownResponse:
+    """Return current portfolio drawdown metrics."""
+    container: ApplicationContainer = request.app.state.container
+
+    try:
+        drawdown = container.portfolio_service.drawdown(
+            peak_value=drawdown_request.peak_value,
+            current_value=drawdown_request.current_value,
+        )
+    except ValueError as error:
+        raise HTTPException(
+            status_code=422,
+            detail=str(error),
+        ) from error
+
+    return PortfolioDrawdownResponse(
+        peak_value=drawdown.peak_value,
+        current_value=drawdown.current_value,
+        drawdown=drawdown.drawdown,
+        drawdown_percent=drawdown.drawdown_percent,
     )
