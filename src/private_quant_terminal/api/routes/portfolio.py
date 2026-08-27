@@ -19,6 +19,8 @@ from private_quant_terminal.api.schemas.portfolio import (
     PortfolioSnapshotResponse,
     PositionResponse,
     TradingPerformanceResponse,
+        PortfolioSummaryRequest,
+    PortfolioSummaryResponse,
 )
 
 
@@ -295,4 +297,44 @@ def get_portfolio_rolling_drawdown(
     return PortfolioRollingDrawdownResponse(
         rolling_drawdown=list(drawdown),
         rolling_max_drawdown=list(max_drawdown),
+    )
+
+@router.post(
+    "/summary",
+    response_model=PortfolioSummaryResponse,
+)
+def get_portfolio_summary(
+    summary_request: PortfolioSummaryRequest,
+    request: Request,
+) -> PortfolioSummaryResponse:
+    """Return an aggregate summary of current portfolio analytics."""
+    container: ApplicationContainer = request.app.state.container
+
+    try:
+        summary = container.portfolio_service.summary(
+            prices=summary_request.prices,
+        )
+    except ValueError as error:
+        raise HTTPException(
+            status_code=422,
+            detail=str(error),
+        ) from error
+
+    return PortfolioSummaryResponse(
+        realized_pnl=summary.snapshot.realized_pnl,
+        unrealized_pnl=summary.snapshot.unrealized_pnl,
+        total_pnl=summary.snapshot.total_pnl,
+        open_position_count=summary.snapshot.open_position_count,
+        closed_trade_count=summary.closed_trade_count,
+        gross_exposure=summary.risk.gross_exposure,
+        net_exposure=summary.risk.net_exposure,
+        long_exposure=summary.risk.long_exposure,
+        short_exposure=summary.risk.short_exposure,
+        largest_position_weight=summary.risk.largest_position_weight,
+        winning_trades=summary.trading_performance.winning_trades,
+        losing_trades=summary.trading_performance.losing_trades,
+        win_rate=summary.trading_performance.win_rate,
+        average_win=summary.trading_performance.average_win,
+        average_loss=summary.trading_performance.average_loss,
+        profit_factor=summary.trading_performance.profit_factor,
     )

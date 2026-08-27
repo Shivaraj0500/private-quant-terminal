@@ -111,3 +111,28 @@ class PortfolioRollingDrawdownRequest(BaseModel):
 class PortfolioRollingDrawdownResponse(BaseModel):
     rolling_drawdown: list[float]
     rolling_max_drawdown: list[float]
+
+
+class PortfolioSummaryRequest(BaseModel):
+    prices: dict[str, float] = Field(default_factory=dict)
+
+
+class PortfolioSummaryResponse(BaseModel):
+    realized_pnl: float
+    unrealized_pnl: float
+    total_pnl: float
+    open_position_count: int
+    closed_trade_count: int
+
+    gross_exposure: float
+    net_exposure: float
+    long_exposure: float
+    short_exposure: float
+    largest_position_weight: float
+
+    winning_trades: int
+    losing_trades: int
+    win_rate: float
+    average_win: float
+    average_loss: float
+    profit_factor: float

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from private_quant_terminal.portfolio.closed_trade import ClosedTrade
 from private_quant_terminal.portfolio.drawdown import (
     DrawdownCalculator,
@@ -30,6 +32,10 @@ from private_quant_terminal.portfolio.rolling_performance import (
     calculate_rolling_metrics,
 )
 from private_quant_terminal.portfolio.snapshot import PortfolioSnapshot
+from private_quant_terminal.portfolio.summary import (
+    PortfolioSummary,
+    calculate_portfolio_summary,
+)
 from private_quant_terminal.portfolio.valuation import (
     PortfolioValuationService,
 )
@@ -117,7 +123,7 @@ class PortfolioService:
         values: tuple[float, ...],
         window: int,
     ) -> tuple[tuple[float, ...], tuple[float, ...]]:
-        """Return rolling drawdown and maximum drawdown analytics."""
+        """Return rolling drawdown and rolling maximum drawdown."""
         return (
             rolling_drawdown(
                 values=values,
@@ -126,6 +132,24 @@ class PortfolioService:
             rolling_max_drawdown(
                 values=values,
                 window=window,
+            ),
+        )
+
+    def summary(
+        self,
+        prices: dict[str, float],
+    ) -> PortfolioSummary:
+        """Return an aggregate summary of current portfolio analytics."""
+        snapshot = self.snapshot(prices)
+        risk = self.risk(prices)
+        trading_performance = self.trading_performance()
+
+        return calculate_portfolio_summary(
+            snapshot=snapshot,
+            risk=risk,
+            trading_performance=trading_performance,
+            closed_trade_count=len(
+                self._position_manager.closed_trades()
             ),
         )
 
