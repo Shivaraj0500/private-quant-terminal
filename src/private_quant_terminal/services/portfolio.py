@@ -14,6 +14,10 @@ from private_quant_terminal.portfolio.performance_calculator import (
 from private_quant_terminal.portfolio.position import Position
 from private_quant_terminal.portfolio.position_manager import PositionManager
 from private_quant_terminal.portfolio.risk import PortfolioRisk
+from private_quant_terminal.portfolio.risk_adjusted import (
+    RiskAdjustedMetrics,
+    calculate_risk_adjusted_metrics,
+)
 from private_quant_terminal.portfolio.risk_calculator import (
     PortfolioRiskCalculator,
 )
@@ -72,6 +76,22 @@ class PortfolioService:
     ) -> PortfolioMetrics:
         """Return summary performance metrics for a return series."""
         return calculate_metrics(returns)
+
+    def risk_adjusted(
+        self,
+        returns: tuple[float, ...],
+        *,
+        risk_free_rate: float = 0.0,
+        target_return: float = 0.0,
+        max_drawdown: float = 0.0,
+    ) -> RiskAdjustedMetrics:
+        """Return risk-adjusted metrics for a portfolio return series."""
+        return calculate_risk_adjusted_metrics(
+            returns,
+            risk_free_rate=risk_free_rate,
+            target_return=target_return,
+            max_drawdown=max_drawdown,
+        )
 
     def trading_performance(self) -> PerformanceSnapshot:
         """Return trading performance calculated from closed trades."""

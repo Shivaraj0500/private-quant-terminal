@@ -155,3 +155,44 @@ class TestPortfolioService:
                 peak_value=0.0,
                 current_value=1000.0,
             )
+
+
+    def test_returns_risk_adjusted_metrics(
+        self,
+        service: PortfolioService,
+    ) -> None:
+        metrics = service.risk_adjusted(
+            returns=(
+                0.10,
+                -0.05,
+                0.15,
+                0.00,
+            ),
+            max_drawdown=0.10,
+        )
+
+        assert metrics.sharpe_ratio == pytest.approx(
+            0.6324555320,
+        )
+        assert metrics.downside_deviation == pytest.approx(
+            0.025,
+        )
+        assert metrics.sortino_ratio == pytest.approx(
+            2.0,
+        )
+        assert metrics.calmar_ratio == pytest.approx(
+            2.0,
+        )
+
+    def test_returns_zero_risk_adjusted_metrics_for_empty_returns(
+        self,
+        service: PortfolioService,
+    ) -> None:
+        metrics = service.risk_adjusted(
+            returns=(),
+        )
+
+        assert metrics.sharpe_ratio == 0.0
+        assert metrics.sortino_ratio == 0.0
+        assert metrics.downside_deviation == 0.0
+        assert metrics.calmar_ratio == 0.0
