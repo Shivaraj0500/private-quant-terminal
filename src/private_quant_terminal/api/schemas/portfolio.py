@@ -15,6 +15,18 @@ class ClosedTradeResponse(BaseModel):
     realized_pnl: float
 
 
+class TradingPerformanceResponse(BaseModel):
+    realized_pnl: float
+    unrealized_pnl: float
+    total_pnl: float
+    winning_trades: int
+    losing_trades: int
+    win_rate: float
+    average_win: float
+    average_loss: float
+    profit_factor: float
+
+
 class PortfolioSnapshotRequest(BaseModel):
     prices: dict[str, float] = Field(default_factory=dict)
 

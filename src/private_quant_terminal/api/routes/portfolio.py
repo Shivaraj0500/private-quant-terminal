@@ -10,6 +10,7 @@ from private_quant_terminal.api.schemas.portfolio import (
     PortfolioSnapshotRequest,
     PortfolioSnapshotResponse,
     PositionResponse,
+    TradingPerformanceResponse,
 )
 
 
@@ -59,6 +60,31 @@ def get_closed_trades(
         )
         for trade in container.portfolio_service.closed_trades()
     ]
+
+
+@router.get(
+    "/trading-performance",
+    response_model=TradingPerformanceResponse,
+)
+def get_trading_performance(
+    request: Request,
+) -> TradingPerformanceResponse:
+    """Return performance statistics calculated from closed trades."""
+    container: ApplicationContainer = request.app.state.container
+
+    performance = container.portfolio_service.trading_performance()
+
+    return TradingPerformanceResponse(
+        realized_pnl=performance.realized_pnl,
+        unrealized_pnl=performance.unrealized_pnl,
+        total_pnl=performance.total_pnl,
+        winning_trades=performance.winning_trades,
+        losing_trades=performance.losing_trades,
+        win_rate=performance.win_rate,
+        average_win=performance.average_win,
+        average_loss=performance.average_loss,
+        profit_factor=performance.profit_factor,
+    )
 
 
 @router.post(

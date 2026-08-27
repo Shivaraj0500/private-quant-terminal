@@ -2,6 +2,9 @@ from private_quant_terminal.brokers.in_memory_execution import (
     InMemoryBrokerExecution,
 )
 from private_quant_terminal.execution.engine import ExecutionEngine
+from private_quant_terminal.portfolio.performance_calculator import (
+    PortfolioPerformanceCalculator,
+)
 from private_quant_terminal.portfolio.position_manager import PositionManager
 from private_quant_terminal.portfolio.risk_calculator import (
     PortfolioRiskCalculator,
@@ -35,6 +38,7 @@ class ApplicationContainer:
                 self.position_manager
             ),
             risk_calculator=PortfolioRiskCalculator(),
+            performance_calculator=PortfolioPerformanceCalculator(),
         )
 
         self.trading_execution_service = TradingExecutionService(

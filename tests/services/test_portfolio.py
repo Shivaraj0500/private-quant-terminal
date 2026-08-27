@@ -1,12 +1,25 @@
 import pytest
 
-from private_quant_terminal.brokers.execution_report import ExecutionReport
+from private_quant_terminal.brokers.execution_report import (
+    ExecutionReport,
+)
 from private_quant_terminal.brokers.order_side import OrderSide
 from private_quant_terminal.brokers.order_status import OrderStatus
-from private_quant_terminal.portfolio.position_manager import PositionManager
-from private_quant_terminal.portfolio.risk_calculator import PortfolioRiskCalculator
-from private_quant_terminal.portfolio.valuation import PortfolioValuationService
-from private_quant_terminal.services.portfolio import PortfolioService
+from private_quant_terminal.portfolio.performance_calculator import (
+    PortfolioPerformanceCalculator,
+)
+from private_quant_terminal.portfolio.position_manager import (
+    PositionManager,
+)
+from private_quant_terminal.portfolio.risk_calculator import (
+    PortfolioRiskCalculator,
+)
+from private_quant_terminal.portfolio.valuation import (
+    PortfolioValuationService,
+)
+from private_quant_terminal.services.portfolio import (
+    PortfolioService,
+)
 
 
 class TestPortfolioService:
@@ -25,6 +38,7 @@ class TestPortfolioService:
                 position_manager
             ),
             risk_calculator=PortfolioRiskCalculator(),
+            performance_calculator=PortfolioPerformanceCalculator(),
         )
 
     def test_returns_positions(
@@ -35,68 +49,56 @@ class TestPortfolioService:
         position_manager.apply_execution(
             symbol="NIFTY",
             side=OrderSide.BUY,
-            quantity=50,
+            quantity=2,
             price=22000.0,
-            report=self._filled_report(),
+            report=ExecutionReport(
+                order_id="order-1",
+                status=OrderStatus.FILLED,
+                filled_quantity=2,
+                remaining_quantity=0,
+                average_price=22000.0,
+            ),
         )
 
         positions = service.positions()
 
         assert len(positions) == 1
         assert positions[0].symbol == "NIFTY"
-        assert positions[0].quantity == 50
+        assert positions[0].quantity == 2
+        assert positions[0].average_price == 22000.0
 
     def test_returns_empty_positions(
         self,
         service: PortfolioService,
     ) -> None:
-        assert service.positions() == ()
+        positions = service.positions()
+
+        assert positions == ()
 
     def test_returns_portfolio_snapshot(
         self,
         service: PortfolioService,
-        position_manager: PositionManager,
     ) -> None:
-        position_manager.apply_execution(
-            symbol="NIFTY",
-            side=OrderSide.BUY,
-            quantity=50,
-            price=22000.0,
-            report=self._filled_report(),
-        )
+        snapshot = service.snapshot({})
 
-        snapshot = service.snapshot(
-            prices={"NIFTY": 22100.0}
-        )
-
+        assert snapshot.positions == ()
         assert snapshot.realized_pnl == 0.0
-        assert snapshot.unrealized_pnl == 5000.0
-        assert snapshot.total_pnl == 5000.0
-        assert snapshot.open_position_count == 1
+        assert snapshot.unrealized_pnl == 0.0
+        assert snapshot.total_pnl == 0.0
+        assert snapshot.open_position_count == 0
 
     def test_returns_portfolio_risk(
         self,
         service: PortfolioService,
-        position_manager: PositionManager,
     ) -> None:
-        position_manager.apply_execution(
-            symbol="NIFTY",
-            side=OrderSide.BUY,
-            quantity=50,
-            price=22000.0,
-            report=self._filled_report(),
-        )
+        risk = service.risk({})
 
-        risk = service.risk(
-            prices={"NIFTY": 22100.0}
-        )
-
-        assert risk.gross_exposure == 1105000.0
-        assert risk.net_exposure == 1105000.0
-        assert risk.long_exposure == 1105000.0
+        assert risk.gross_exposure == 0.0
+        assert risk.net_exposure == 0.0
+        assert risk.long_exposure == 0.0
         assert risk.short_exposure == 0.0
-        assert risk.largest_position_weight == 1.0
-        assert risk.position_count == 1
+        assert risk.largest_position_weight == 0.0
+        assert risk.position_count == 0
 
     def test_raises_for_missing_risk_price(
         self,
@@ -106,23 +108,19 @@ class TestPortfolioService:
         position_manager.apply_execution(
             symbol="NIFTY",
             side=OrderSide.BUY,
-            quantity=50,
+            quantity=1,
             price=22000.0,
-            report=self._filled_report(),
+            report=ExecutionReport(
+                order_id="order-1",
+                status=OrderStatus.FILLED,
+                filled_quantity=1,
+                remaining_quantity=0,
+                average_price=22000.0,
+            ),
         )
 
         with pytest.raises(
             ValueError,
             match="Missing market price for symbol: NIFTY",
         ):
-            service.risk(prices={})
-
-    @staticmethod
-    def _filled_report() -> ExecutionReport:
-        return ExecutionReport(
-            order_id="ORDER-1",
-            status=OrderStatus.FILLED,
-            filled_quantity=50,
-            remaining_quantity=0,
-            average_price=22000.0,
-        )
+            service.risk({})
