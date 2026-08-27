@@ -30,3 +30,15 @@ class PortfolioRiskResponse(BaseModel):
     short_exposure: float
     largest_position_weight: float
     position_count: int
+
+
+class PortfolioPerformanceRequest(BaseModel):
+    returns: list[float] = Field(default_factory=list)
+
+
+class PortfolioPerformanceResponse(BaseModel):
+    total_return: float
+    average_return: float
+    best_return: float
+    worst_return: float
+    volatility: float

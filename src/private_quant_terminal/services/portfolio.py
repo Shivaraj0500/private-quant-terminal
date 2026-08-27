@@ -1,3 +1,7 @@
+from private_quant_terminal.portfolio.metrics import (
+    PortfolioMetrics,
+    calculate_metrics,
+)
 from private_quant_terminal.portfolio.position import Position
 from private_quant_terminal.portfolio.position_manager import PositionManager
 from private_quant_terminal.portfolio.risk import PortfolioRisk
@@ -40,3 +44,10 @@ class PortfolioService:
             positions=self._position_manager.positions(),
             prices=prices,
         )
+
+    def performance(
+        self,
+        returns: tuple[float, ...],
+    ) -> PortfolioMetrics:
+        """Return summary performance metrics for a return series."""
+        return calculate_metrics(returns)

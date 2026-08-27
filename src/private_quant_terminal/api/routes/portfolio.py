@@ -2,6 +2,8 @@ from fastapi import APIRouter, HTTPException, Request
 
 from private_quant_terminal.api.container import ApplicationContainer
 from private_quant_terminal.api.schemas.portfolio import (
+    PortfolioPerformanceRequest,
+    PortfolioPerformanceResponse,
     PortfolioRiskRequest,
     PortfolioRiskResponse,
     PortfolioSnapshotRequest,
@@ -93,4 +95,28 @@ def get_portfolio_risk(
         short_exposure=risk.short_exposure,
         largest_position_weight=risk.largest_position_weight,
         position_count=risk.position_count,
+    )
+
+
+@router.post(
+    "/performance",
+    response_model=PortfolioPerformanceResponse,
+)
+def get_portfolio_performance(
+    performance_request: PortfolioPerformanceRequest,
+    request: Request,
+) -> PortfolioPerformanceResponse:
+    """Return summary performance metrics for a return series."""
+    container: ApplicationContainer = request.app.state.container
+
+    performance = container.portfolio_service.performance(
+        returns=tuple(performance_request.returns),
+    )
+
+    return PortfolioPerformanceResponse(
+        total_return=performance.total_return,
+        average_return=performance.average_return,
+        best_return=performance.best_return,
+        worst_return=performance.worst_return,
+        volatility=performance.volatility,
     )
