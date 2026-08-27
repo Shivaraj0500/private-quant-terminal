@@ -4,7 +4,6 @@ from private_quant_terminal.analytics.registry import IndicatorRegistry
 
 
 class TestIndicatorRegistry:
-
     def test_registry_registers_indicator(self) -> None:
         registry = IndicatorRegistry()
 
@@ -33,6 +32,14 @@ class TestIndicatorRegistry:
 
         with pytest.raises(ValueError):
             registry.register("sma", object())
+
+    def test_registry_gets_registered_indicator(self) -> None:
+        registry = IndicatorRegistry()
+        indicator = object()
+
+        registry.register("sma", indicator)
+
+        assert registry.get("sma") is indicator
 
     def test_registry_rejects_unknown_indicator(self) -> None:
         registry = IndicatorRegistry()

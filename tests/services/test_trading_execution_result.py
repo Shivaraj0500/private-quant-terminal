@@ -68,3 +68,49 @@ class TestTradingExecutionResult:
 
         with pytest.raises(FrozenInstanceError):
             result.completed = True
+
+    def test_equal_results_are_equal(self) -> None:
+        execution_result = ExecutionResult(
+            signal_symbol="NIFTY",
+            order_request=None,
+            executed=False,
+        )
+
+        first = TradingExecutionResult(
+            execution_result=execution_result,
+            risk_result=None,
+            execution_report=None,
+            completed=False,
+        )
+
+        second = TradingExecutionResult(
+            execution_result=execution_result,
+            risk_result=None,
+            execution_report=None,
+            completed=False,
+        )
+
+        assert first == second
+
+    def test_different_results_are_not_equal(self) -> None:
+        execution_result = ExecutionResult(
+            signal_symbol="NIFTY",
+            order_request=None,
+            executed=False,
+        )
+
+        first = TradingExecutionResult(
+            execution_result=execution_result,
+            risk_result=None,
+            execution_report=None,
+            completed=False,
+        )
+
+        second = TradingExecutionResult(
+            execution_result=execution_result,
+            risk_result=None,
+            execution_report=None,
+            completed=True,
+        )
+
+        assert first != second

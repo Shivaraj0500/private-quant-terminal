@@ -298,3 +298,19 @@ def test_get_latest_quote_returns_quote_from_provider() -> None:
     )
 
     assert service.get_latest_quote("NIFTY") is quote
+
+
+def test_clear_unknown_symbol_is_safe() -> None:
+    broker = FakeBrokerProvider()
+    repository = CandleRepository()
+
+    service = MarketDataService(
+        broker,
+        repository,
+    )
+
+    service.clear_symbol("UNKNOWN")
+
+    assert service.get_candles("UNKNOWN") == ()
+    assert service.latest_tick("UNKNOWN") is None
+    assert service.loaded_symbols() == ()

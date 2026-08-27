@@ -1,3 +1,7 @@
+from dataclasses import FrozenInstanceError
+
+import pytest
+
 from private_quant_terminal.brokers.order_request import OrderRequest
 from private_quant_terminal.brokers.order_side import OrderSide
 from private_quant_terminal.brokers.order_type import OrderType
@@ -37,6 +41,15 @@ class TestExecutionResult:
         assert result.executed is False
         assert result.reason == "Signal type HOLD does not create an order"
 
+    def test_uses_none_as_default_reason(self) -> None:
+        result = ExecutionResult(
+            signal_symbol="TCS",
+            order_request=None,
+            executed=False,
+        )
+
+        assert result.reason is None
+
     def test_execution_result_is_immutable(self) -> None:
         result = ExecutionResult(
             signal_symbol="NIFTY",
@@ -44,9 +57,39 @@ class TestExecutionResult:
             executed=False,
         )
 
-        try:
+        with pytest.raises(FrozenInstanceError):
             result.executed = True
-        except Exception as error:
-            assert type(error).__name__ == "FrozenInstanceError"
-        else:
-            raise AssertionError("ExecutionResult should be immutable")
+
+    def test_equal_execution_results_are_equal(self) -> None:
+        first = ExecutionResult(
+            signal_symbol="NIFTY",
+            order_request=None,
+            executed=False,
+            reason="No order",
+        )
+
+        second = ExecutionResult(
+            signal_symbol="NIFTY",
+            order_request=None,
+            executed=False,
+            reason="No order",
+        )
+
+        assert first == second
+
+    def test_different_execution_results_are_not_equal(self) -> None:
+        first = ExecutionResult(
+            signal_symbol="NIFTY",
+            order_request=None,
+            executed=False,
+            reason="No order",
+        )
+
+        second = ExecutionResult(
+            signal_symbol="BANKNIFTY",
+            order_request=None,
+            executed=False,
+            reason="No order",
+        )
+
+        assert first != second

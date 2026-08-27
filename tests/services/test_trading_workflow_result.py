@@ -1,3 +1,5 @@
+from dataclasses import FrozenInstanceError
+
 import pytest
 
 from private_quant_terminal.brokers.execution_report import ExecutionReport
@@ -91,9 +93,50 @@ class TestTradingWorkflowResult:
             position=None,
         )
 
-        with pytest.raises(AttributeError):
+        with pytest.raises(FrozenInstanceError):
             result.position = Position(
                 symbol="NIFTY",
                 quantity=50,
                 average_price=22000.0,
             )
+
+    def test_equal_results_are_equal(self) -> None:
+        risk_result = RiskResult(
+            approved=False,
+            reason="Rejected",
+        )
+
+        first = TradingWorkflowResult(
+            risk_result=risk_result,
+            execution_result=None,
+            position=None,
+        )
+
+        second = TradingWorkflowResult(
+            risk_result=risk_result,
+            execution_result=None,
+            position=None,
+        )
+
+        assert first == second
+
+    def test_different_results_are_not_equal(self) -> None:
+        first = TradingWorkflowResult(
+            risk_result=RiskResult(
+                approved=False,
+                reason="Rejected",
+            ),
+            execution_result=None,
+            position=None,
+        )
+
+        second = TradingWorkflowResult(
+            risk_result=RiskResult(
+                approved=True,
+                reason=None,
+            ),
+            execution_result=None,
+            position=None,
+        )
+
+        assert first != second
