@@ -196,3 +196,60 @@ class TestPortfolioService:
         assert metrics.sortino_ratio == 0.0
         assert metrics.downside_deviation == 0.0
         assert metrics.calmar_ratio == 0.0
+
+    def test_returns_rolling_performance_metrics(
+        self,
+        service: PortfolioService,
+    ) -> None:
+        metrics = service.rolling_performance(
+            returns=(
+                0.10,
+                -0.05,
+                0.15,
+            ),
+            window=2,
+        )
+
+        assert metrics.rolling_returns == pytest.approx(
+            (
+                0.045,
+                0.0925,
+            )
+        )
+        assert metrics.rolling_average == pytest.approx(
+            (
+                0.025,
+                0.05,
+            )
+        )
+        assert metrics.rolling_volatility == pytest.approx(
+            (
+                0.075,
+                0.10,
+            )
+        )
+        assert metrics.rolling_drawdown == pytest.approx(
+            (
+                -0.05,
+                0.0,
+            )
+        )
+        assert metrics.rolling_max_drawdown == pytest.approx(
+            (
+                -0.05,
+                0.0,
+            )
+        )
+
+    def test_rejects_invalid_rolling_performance_window(
+        self,
+        service: PortfolioService,
+    ) -> None:
+        with pytest.raises(
+            ValueError,
+            match="window must be greater than zero",
+        ):
+            service.rolling_performance(
+                returns=(0.10, 0.05),
+                window=0,
+            )
