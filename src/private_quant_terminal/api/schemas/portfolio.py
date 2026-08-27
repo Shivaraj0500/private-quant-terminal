@@ -74,3 +74,17 @@ class PortfolioDrawdownResponse(BaseModel):
     current_value: float
     drawdown: float
     drawdown_percent: float
+
+
+class PortfolioRiskAdjustedRequest(BaseModel):
+    returns: list[float] = Field(default_factory=list)
+    risk_free_rate: float = 0.0
+    target_return: float = 0.0
+    max_drawdown: float = 0.0
+
+
+class PortfolioRiskAdjustedResponse(BaseModel):
+    sharpe_ratio: float
+    sortino_ratio: float
+    downside_deviation: float
+    calmar_ratio: float

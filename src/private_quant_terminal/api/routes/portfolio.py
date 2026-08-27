@@ -7,6 +7,8 @@ from private_quant_terminal.api.schemas.portfolio import (
     PortfolioDrawdownResponse,
     PortfolioPerformanceRequest,
     PortfolioPerformanceResponse,
+    PortfolioRiskAdjustedRequest,
+    PortfolioRiskAdjustedResponse,
     PortfolioRiskRequest,
     PortfolioRiskResponse,
     PortfolioSnapshotRequest,
@@ -203,3 +205,29 @@ def get_portfolio_drawdown(
         drawdown=drawdown.drawdown,
         drawdown_percent=drawdown.drawdown_percent,
     )
+
+@router.post(
+    "/risk-adjusted",
+    response_model=PortfolioRiskAdjustedResponse,
+)
+def get_portfolio_risk_adjusted(
+    risk_adjusted_request: PortfolioRiskAdjustedRequest,
+    request: Request,
+) -> PortfolioRiskAdjustedResponse:
+    """Return risk-adjusted metrics for a portfolio return series."""
+    container: ApplicationContainer = request.app.state.container
+
+    metrics = container.portfolio_service.risk_adjusted(
+        returns=tuple(risk_adjusted_request.returns),
+        risk_free_rate=risk_adjusted_request.risk_free_rate,
+        target_return=risk_adjusted_request.target_return,
+        max_drawdown=risk_adjusted_request.max_drawdown,
+    )
+
+    return PortfolioRiskAdjustedResponse(
+        sharpe_ratio=metrics.sharpe_ratio,
+        sortino_ratio=metrics.sortino_ratio,
+        downside_deviation=metrics.downside_deviation,
+        calmar_ratio=metrics.calmar_ratio,
+    )
+
