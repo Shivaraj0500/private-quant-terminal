@@ -7,6 +7,14 @@ class PositionResponse(BaseModel):
     average_price: float
 
 
+class ClosedTradeResponse(BaseModel):
+    symbol: str
+    quantity: int
+    entry_price: float
+    exit_price: float
+    realized_pnl: float
+
+
 class PortfolioSnapshotRequest(BaseModel):
     prices: dict[str, float] = Field(default_factory=dict)
 

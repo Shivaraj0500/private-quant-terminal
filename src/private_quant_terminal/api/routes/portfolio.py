@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Request
 
 from private_quant_terminal.api.container import ApplicationContainer
 from private_quant_terminal.api.schemas.portfolio import (
+    ClosedTradeResponse,
     PortfolioPerformanceRequest,
     PortfolioPerformanceResponse,
     PortfolioRiskRequest,
@@ -22,7 +23,9 @@ router = APIRouter(
     "/positions",
     response_model=list[PositionResponse],
 )
-def get_positions(request: Request) -> list[PositionResponse]:
+def get_positions(
+    request: Request,
+) -> list[PositionResponse]:
     """Return all currently open portfolio positions."""
     container: ApplicationContainer = request.app.state.container
 
@@ -33,6 +36,28 @@ def get_positions(request: Request) -> list[PositionResponse]:
             average_price=position.average_price,
         )
         for position in container.portfolio_service.positions()
+    ]
+
+
+@router.get(
+    "/closed-trades",
+    response_model=list[ClosedTradeResponse],
+)
+def get_closed_trades(
+    request: Request,
+) -> list[ClosedTradeResponse]:
+    """Return all completed portfolio trades."""
+    container: ApplicationContainer = request.app.state.container
+
+    return [
+        ClosedTradeResponse(
+            symbol=trade.symbol,
+            quantity=trade.quantity,
+            entry_price=trade.entry_price,
+            exit_price=trade.exit_price,
+            realized_pnl=trade.realized_pnl,
+        )
+        for trade in container.portfolio_service.closed_trades()
     ]
 
 

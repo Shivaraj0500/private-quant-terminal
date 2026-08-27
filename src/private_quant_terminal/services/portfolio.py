@@ -1,3 +1,4 @@
+from private_quant_terminal.portfolio.closed_trade import ClosedTrade
 from private_quant_terminal.portfolio.metrics import (
     PortfolioMetrics,
     calculate_metrics,
@@ -5,9 +6,13 @@ from private_quant_terminal.portfolio.metrics import (
 from private_quant_terminal.portfolio.position import Position
 from private_quant_terminal.portfolio.position_manager import PositionManager
 from private_quant_terminal.portfolio.risk import PortfolioRisk
-from private_quant_terminal.portfolio.risk_calculator import PortfolioRiskCalculator
+from private_quant_terminal.portfolio.risk_calculator import (
+    PortfolioRiskCalculator,
+)
 from private_quant_terminal.portfolio.snapshot import PortfolioSnapshot
-from private_quant_terminal.portfolio.valuation import PortfolioValuationService
+from private_quant_terminal.portfolio.valuation import (
+    PortfolioValuationService,
+)
 
 
 class PortfolioService:
@@ -27,6 +32,10 @@ class PortfolioService:
     def positions(self) -> tuple[Position, ...]:
         """Return all currently open portfolio positions."""
         return self._position_manager.positions()
+
+    def closed_trades(self) -> tuple[ClosedTrade, ...]:
+        """Return all completed portfolio trades."""
+        return self._position_manager.closed_trades()
 
     def snapshot(
         self,
