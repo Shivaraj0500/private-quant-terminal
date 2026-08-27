@@ -88,3 +88,16 @@ class PortfolioRiskAdjustedResponse(BaseModel):
     sortino_ratio: float
     downside_deviation: float
     calmar_ratio: float
+
+
+class PortfolioRollingPerformanceRequest(BaseModel):
+    returns: list[float] = Field(default_factory=list)
+    window: int
+
+
+class PortfolioRollingPerformanceResponse(BaseModel):
+    rolling_returns: list[float]
+    rolling_average: list[float]
+    rolling_volatility: list[float]
+    rolling_drawdown: list[float]
+    rolling_max_drawdown: list[float]

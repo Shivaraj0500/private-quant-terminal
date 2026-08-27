@@ -6,6 +6,8 @@ from private_quant_terminal.api.schemas.portfolio import (
     PortfolioDrawdownRequest,
     PortfolioDrawdownResponse,
     PortfolioPerformanceRequest,
+    PortfolioRollingPerformanceRequest,
+    PortfolioRollingPerformanceResponse,
     PortfolioPerformanceResponse,
     PortfolioRiskAdjustedRequest,
     PortfolioRiskAdjustedResponse,
@@ -231,3 +233,34 @@ def get_portfolio_risk_adjusted(
         calmar_ratio=metrics.calmar_ratio,
     )
 
+
+
+@router.post(
+    "/rolling-performance",
+    response_model=PortfolioRollingPerformanceResponse,
+)
+def get_portfolio_rolling_performance(
+    rolling_request: PortfolioRollingPerformanceRequest,
+    request: Request,
+) -> PortfolioRollingPerformanceResponse:
+    """Return rolling portfolio performance analytics."""
+    container: ApplicationContainer = request.app.state.container
+
+    try:
+        metrics = container.portfolio_service.rolling_performance(
+            returns=tuple(rolling_request.returns),
+            window=rolling_request.window,
+        )
+    except ValueError as error:
+        raise HTTPException(
+            status_code=422,
+            detail=str(error),
+        ) from error
+
+    return PortfolioRollingPerformanceResponse(
+        rolling_returns=list(metrics.rolling_returns),
+        rolling_average=list(metrics.rolling_average),
+        rolling_volatility=list(metrics.rolling_volatility),
+        rolling_drawdown=list(metrics.rolling_drawdown),
+        rolling_max_drawdown=list(metrics.rolling_max_drawdown),
+    )
