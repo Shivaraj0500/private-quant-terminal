@@ -30,6 +30,14 @@ class ExecutionEngine:
                 reason="Signal type HOLD does not create an order",
             )
 
+        if signal.price is None:
+            return ExecutionResult(
+                signal_symbol=signal.symbol,
+                order_request=None,
+                executed=False,
+                reason="Executable signals require a price",
+            )
+
         side = self._to_order_side(signal.signal_type)
 
         order_request = OrderRequest(
@@ -37,6 +45,7 @@ class ExecutionEngine:
             quantity=self._quantity,
             side=side,
             order_type=self._order_type,
+            price=signal.price,
         )
 
         return ExecutionResult(

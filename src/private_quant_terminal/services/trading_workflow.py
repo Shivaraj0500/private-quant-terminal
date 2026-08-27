@@ -5,6 +5,7 @@ from private_quant_terminal.services.trading_execution import (
 from private_quant_terminal.services.trading_workflow_result import (
     TradingWorkflowResult,
 )
+from private_quant_terminal.strategies.signal import Signal
 
 
 class TradingWorkflowService:
@@ -21,7 +22,7 @@ class TradingWorkflowService:
 
     def execute(
         self,
-        signal: object,
+        signal: Signal,
     ) -> TradingWorkflowResult:
         """Execute the complete trading workflow for a signal."""
         trading_execution_result = (

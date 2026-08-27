@@ -13,4 +13,16 @@ class OrderRequest:
     quantity: int
     side: OrderSide
     order_type: OrderType
+    price: float | None = None
     time_in_force: TimeInForce = TimeInForce.DAY
+
+    def __post_init__(self) -> None:
+        """Validate order request values."""
+        if not self.symbol:
+            raise ValueError("symbol cannot be empty")
+
+        if self.quantity <= 0:
+            raise ValueError("quantity must be greater than zero")
+
+        if self.price is not None and self.price <= 0:
+            raise ValueError("price must be greater than zero")

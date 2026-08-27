@@ -27,6 +27,7 @@ class TestExecutionEngine:
         signal = Signal(
             symbol="NIFTY",
             signal_type=SignalType.BUY,
+            price=22000.0,
         )
 
         result = engine.execute(signal)
@@ -39,6 +40,7 @@ class TestExecutionEngine:
         assert result.order_request.quantity == 10
         assert result.order_request.side is OrderSide.BUY
         assert result.order_request.order_type is OrderType.MARKET
+        assert result.order_request.price == 22000.0
 
     def test_converts_sell_signal_to_sell_order(self) -> None:
         engine = ExecutionEngine(quantity=15)
@@ -46,6 +48,7 @@ class TestExecutionEngine:
         signal = Signal(
             symbol="RELIANCE",
             signal_type=SignalType.SELL,
+            price=1450.0,
         )
 
         result = engine.execute(signal)
@@ -58,6 +61,7 @@ class TestExecutionEngine:
         assert result.order_request.quantity == 15
         assert result.order_request.side is OrderSide.SELL
         assert result.order_request.order_type is OrderType.MARKET
+        assert result.order_request.price == 1450.0
 
     def test_hold_signal_does_not_create_order(self) -> None:
         engine = ExecutionEngine(quantity=10)
@@ -74,6 +78,21 @@ class TestExecutionEngine:
         assert result.order_request is None
         assert result.reason == "Signal type HOLD does not create an order"
 
+    def test_rejects_executable_signal_without_price(self) -> None:
+        engine = ExecutionEngine(quantity=10)
+
+        signal = Signal(
+            symbol="NIFTY",
+            signal_type=SignalType.BUY,
+        )
+
+        result = engine.execute(signal)
+
+        assert result.signal_symbol == "NIFTY"
+        assert result.executed is False
+        assert result.order_request is None
+        assert result.reason == "Executable signals require a price"
+
     def test_uses_configured_limit_order_type(self) -> None:
         engine = ExecutionEngine(
             quantity=25,
@@ -83,6 +102,7 @@ class TestExecutionEngine:
         signal = Signal(
             symbol="TCS",
             signal_type=SignalType.BUY,
+            price=3500.0,
         )
 
         result = engine.execute(signal)
@@ -91,6 +111,7 @@ class TestExecutionEngine:
         assert result.order_request is not None
         assert result.order_request.quantity == 25
         assert result.order_request.order_type is OrderType.LIMIT
+        assert result.order_request.price == 3500.0
 
     def test_to_order_side_converts_buy(self) -> None:
         assert (
