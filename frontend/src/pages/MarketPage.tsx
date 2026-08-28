@@ -1,6 +1,8 @@
 import {
   Activity,
   Database,
+  LoaderCircle,
+  TriangleAlert,
 } from "lucide-react";
 
 import { MarketMovers } from "../features/market/components/MarketMovers";
@@ -14,7 +16,10 @@ export function MarketPage() {
     instruments,
     topGainers,
     topLosers,
+    isLoading,
+    error,
   } = useMarketData();
+
 
   return (
     <div className="page market-page">
@@ -25,31 +30,60 @@ export function MarketPage() {
           <h2>Market Workspace</h2>
 
           <p>
-            Monitor indices, instruments, market movement, and trading data
-            from a unified research workspace.
+            Monitor live instruments, market movement, and trading data
+            from the Private Quant Terminal backend.
           </p>
         </div>
 
         <div className="market-status">
           <span className="market-status-icon">
-            <Activity size={17} />
+            {isLoading ? (
+              <LoaderCircle size={17} />
+            ) : error ? (
+              <TriangleAlert size={17} />
+            ) : (
+              <Activity size={17} />
+            )}
           </span>
 
           <div>
             <span className="market-status-label">Market Data</span>
-            <strong>Development Mode</strong>
+
+            <strong>
+              {isLoading
+                ? "Loading..."
+                : error
+                  ? "Connection Error"
+                  : "Backend Connected"}
+            </strong>
           </div>
         </div>
       </div>
 
-      <section className="market-index-grid">
-        {indices.map((index) => (
-          <MarketSummaryCard
-            key={index.id}
-            index={index}
-          />
-        ))}
-      </section>
+      {error ? (
+        <div className="market-data-info">
+          <div className="market-data-info-icon">
+            <TriangleAlert size={20} />
+          </div>
+
+          <div>
+            <span className="panel-eyebrow">API ERROR</span>
+            <h3>Unable to load market data</h3>
+            <p>{error}</p>
+          </div>
+        </div>
+      ) : null}
+
+      {indices.length > 0 ? (
+        <section className="market-index-grid">
+          {indices.map((index) => (
+            <MarketSummaryCard
+              key={index.id}
+              index={index}
+            />
+          ))}
+        </section>
+      ) : null}
 
       <section className="market-movers-grid">
         <MarketMovers
@@ -70,13 +104,14 @@ export function MarketPage() {
           </div>
 
           <div>
-            <span className="panel-eyebrow">DATA SOURCE</span>
-            <h3>Backend Integration Ready</h3>
+            <span className="panel-eyebrow">LIVE BACKEND DATA</span>
+            <h3>
+              {instruments.length} Instruments Loaded
+            </h3>
 
             <p>
-              The Market module currently uses a structured mock data layer.
-              The same interface will later connect directly to the Private
-              Quant backend API.
+              Quotes are fetched from the Private Quant Terminal backend and
+              refresh automatically every 30 seconds.
             </p>
           </div>
         </div>

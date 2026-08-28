@@ -5,7 +5,18 @@ import {
   Search,
 } from "lucide-react";
 
+import { useUpstoxStatus } from "../../features/broker/hooks/useUpstoxStatus";
+
 export function Topbar() {
+  const upstoxQuery = useUpstoxStatus();
+
+  const userName =
+    upstoxQuery.isSuccess &&
+    upstoxQuery.data?.authenticated &&
+    upstoxQuery.data.user_name
+      ? upstoxQuery.data.user_name
+      : "Researcher";
+
   return (
     <header className="topbar">
       <div className="topbar-left">
@@ -41,9 +52,14 @@ export function Topbar() {
           className="topbar-profile"
           type="button"
           aria-label="User profile"
+          title={
+            upstoxQuery.data?.authenticated
+              ? "Upstox connected"
+              : "No broker connected"
+          }
         >
           <CircleUserRound size={22} />
-          <span>Researcher</span>
+          <span>{userName}</span>
         </button>
       </div>
     </header>

@@ -3390,3 +3390,10 @@ button {
     display: none;
   }
 }
+.status-indicator-offline {
+  background: #ef6b73;
+}
+
+.status-dot-offline {
+  background: #ef6b73;
+}

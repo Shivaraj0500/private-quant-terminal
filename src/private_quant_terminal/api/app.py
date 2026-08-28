@@ -32,6 +32,9 @@ def create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
+        allow_origin_regex=(
+            r"https://[a-z0-9-]+-[0-9]+\.app\.github\.dev"
+        ),
         allow_origins=[
             "http://localhost:5173",
             "http://localhost:5174",

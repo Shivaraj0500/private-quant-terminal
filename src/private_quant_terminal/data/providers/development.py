@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 from private_quant_terminal.data.providers.broker_base import (
     BrokerMarketDataProvider,
@@ -33,6 +33,15 @@ class DevelopmentMarketDataProvider(BrokerMarketDataProvider):
                 "previous_close": 4092.20,
                 "volume": 1234567.0,
             },
+            "HDFCBANK": {
+                "exchange": "NSE",
+                "last_price": 1687.90,
+                "open": 1702.40,
+                "high": 1708.10,
+                "low": 1682.30,
+                "previous_close": 1700.35,
+                "volume": 6912345.0,
+            },
             "INFY": {
                 "exchange": "NSE",
                 "last_price": 1874.60,
@@ -41,6 +50,42 @@ class DevelopmentMarketDataProvider(BrokerMarketDataProvider):
                 "low": 1854.10,
                 "previous_close": 1857.80,
                 "volume": 3567890.0,
+            },
+            "ICICIBANK": {
+                "exchange": "NSE",
+                "last_price": 1234.80,
+                "open": 1225.50,
+                "high": 1238.40,
+                "low": 1222.10,
+                "previous_close": 1225.20,
+                "volume": 7854321.0,
+            },
+            "SBIN": {
+                "exchange": "NSE",
+                "last_price": 812.65,
+                "open": 820.10,
+                "high": 823.50,
+                "low": 808.30,
+                "previous_close": 819.45,
+                "volume": 8445678.0,
+            },
+            "ITC": {
+                "exchange": "NSE",
+                "last_price": 468.20,
+                "open": 465.50,
+                "high": 470.20,
+                "low": 463.85,
+                "previous_close": 465.05,
+                "volume": 6234567.0,
+            },
+            "LT": {
+                "exchange": "NSE",
+                "last_price": 3520.40,
+                "open": 3482.00,
+                "high": 3534.90,
+                "low": 3476.60,
+                "previous_close": 3478.60,
+                "volume": 2165432.0,
             },
             "NIFTY": {
                 "exchange": "NSE",

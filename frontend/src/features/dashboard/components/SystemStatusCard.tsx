@@ -3,36 +3,61 @@ import {
   Database,
   Server,
   Wifi,
+  XCircle,
 } from "lucide-react";
 
-const systems = [
-  {
-    label: "Research Engine",
-    value: "Operational",
-    icon: CheckCircle2,
-    status: "online",
-  },
-  {
-    label: "Backend API",
-    value: "Local",
-    icon: Server,
-    status: "online",
-  },
-  {
-    label: "Market Data",
-    value: "Development",
-    icon: Database,
-    status: "warning",
-  },
-  {
-    label: "Data Connection",
-    value: "Connected",
-    icon: Wifi,
-    status: "online",
-  },
-];
+import { useUpstoxStatus } from "../../broker/hooks/useUpstoxStatus";
+import { useHealth } from "../../system/hooks/useHealth";
 
 export function SystemStatusCard() {
+  const healthQuery = useHealth();
+  const upstoxQuery = useUpstoxStatus();
+
+  const backendOnline =
+    healthQuery.isSuccess &&
+    healthQuery.data?.status.toLowerCase() === "ok";
+
+  const brokerConnected =
+    upstoxQuery.isSuccess &&
+    upstoxQuery.data?.authenticated === true;
+
+  const systems = [
+    {
+      label: "Research Engine",
+      value: backendOnline ? "Operational" : "Waiting",
+      icon: CheckCircle2,
+      status: backendOnline ? "online" : "warning",
+    },
+    {
+      label: "Backend API",
+      value: backendOnline ? "Connected" : "Disconnected",
+      icon: Server,
+      status: backendOnline ? "online" : "offline",
+    },
+    {
+      label: "Market Data",
+      value: brokerConnected ? "Broker Connected" : "Development",
+      icon: Database,
+      status: brokerConnected ? "online" : "warning",
+    },
+    {
+      label: "Upstox Broker",
+      value: upstoxQuery.isLoading
+        ? "Checking..."
+        : brokerConnected
+          ? upstoxQuery.data?.user_name || "Connected"
+          : "Not Connected",
+      icon: Wifi,
+      status: brokerConnected
+        ? "online"
+        : upstoxQuery.isLoading
+          ? "warning"
+          : "offline",
+    },
+  ];
+
+  const live = backendOnline;
+
   return (
     <section className="dashboard-panel">
       <div className="dashboard-panel-header">
@@ -42,8 +67,9 @@ export function SystemStatusCard() {
         </div>
 
         <span className="panel-live">
-          <span className="live-dot" />
-          LIVE
+          {live ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+          <span className={live ? "live-dot" : "status-dot status-dot-offline"} />
+          {live ? "LIVE" : "OFFLINE"}
         </span>
       </div>
 
