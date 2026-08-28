@@ -1,6 +1,14 @@
+from private_quant_terminal.brokers.upstox.session import (
+    UpstoxSessionStore,
+)
+
 from private_quant_terminal.brokers.in_memory_execution import (
     InMemoryBrokerExecution,
 )
+from private_quant_terminal.data.providers.development import (
+    DevelopmentMarketDataProvider,
+)
+from private_quant_terminal.data.repository import CandleRepository
 from private_quant_terminal.execution.engine import ExecutionEngine
 from private_quant_terminal.portfolio.drawdown import (
     DrawdownCalculator,
@@ -20,6 +28,7 @@ from private_quant_terminal.risk.manager import RiskManager
 from private_quant_terminal.services.broker_execution import (
     BrokerExecutionService,
 )
+from private_quant_terminal.services.market_data import MarketDataService
 from private_quant_terminal.services.portfolio import PortfolioService
 from private_quant_terminal.services.trading_execution import (
     TradingExecutionService,
@@ -33,7 +42,16 @@ class ApplicationContainer:
     """Hold shared application services and state."""
 
     def __init__(self) -> None:
+        self.upstox_session_store = UpstoxSessionStore()
+
         self.position_manager = PositionManager()
+
+        self.candle_repository = CandleRepository()
+        self.market_data_provider = DevelopmentMarketDataProvider()
+        self.market_data_service = MarketDataService(
+            provider=self.market_data_provider,
+            candle_repository=self.candle_repository,
+        )
 
         self.portfolio_service = PortfolioService(
             position_manager=self.position_manager,

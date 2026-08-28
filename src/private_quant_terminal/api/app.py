@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from private_quant_terminal.api.container import ApplicationContainer
 from private_quant_terminal.api.routes.health import (
@@ -16,13 +17,29 @@ from private_quant_terminal.api.routes.technical_analysis import (
 from private_quant_terminal.api.routes.trading import (
     router as trading_router,
 )
+from private_quant_terminal.api.routes.upstox import (
+    router as upstox_router,
+)
 
 
 def create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
+
     app = FastAPI(
         title="Private Quant Terminal",
         version="0.1.0",
+    )
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "http://localhost:5173",
+            "http://localhost:5174",
+            "http://localhost:5175",
+        ],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
     )
 
     app.state.container = ApplicationContainer()
@@ -32,6 +49,7 @@ def create_app() -> FastAPI:
     app.include_router(technical_analysis_router)
     app.include_router(portfolio_router)
     app.include_router(trading_router)
+    app.include_router(upstox_router)
 
     return app
 
