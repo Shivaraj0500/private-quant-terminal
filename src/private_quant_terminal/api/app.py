@@ -11,6 +11,12 @@ from private_quant_terminal.api.routes.market_data import (
 from private_quant_terminal.api.routes.portfolio import (
     router as portfolio_router,
 )
+from private_quant_terminal.api.routes.research import (
+    router as research_router,
+)
+from private_quant_terminal.api.routes.strategy import (
+    router as strategy_router,
+)
 from private_quant_terminal.api.routes.technical_analysis import (
     router as technical_analysis_router,
 )
@@ -50,6 +56,8 @@ def create_app() -> FastAPI:
     app.include_router(health_router)
     app.include_router(market_data_router)
     app.include_router(technical_analysis_router)
+    app.include_router(research_router)
+    app.include_router(strategy_router)
     app.include_router(portfolio_router)
     app.include_router(trading_router)
     app.include_router(upstox_router)

@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import MagicMock, patch
 
 import pandas as pd
@@ -213,7 +213,7 @@ def test_normalize_timestamp_removes_timezone() -> None:
         1,
         9,
         15,
-        tzinfo=timezone.utc,
+        tzinfo=UTC,
     )
 
     result = YahooFinanceMarketDataProvider._normalize_timestamp(

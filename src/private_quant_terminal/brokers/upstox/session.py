@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from private_quant_terminal.brokers.upstox.token import (
     UpstoxTokenResponse,
@@ -34,7 +34,7 @@ class UpstoxSessionStore:
             token_type=token.token_type,
             user_id=token.user_id,
             user_name=token.user_name,
-            authenticated_at=datetime.now(timezone.utc),
+            authenticated_at=datetime.now(UTC),
         )
 
         self._session = session

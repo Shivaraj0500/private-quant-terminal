@@ -1,6 +1,6 @@
-import pytest
-
 from collections.abc import AsyncIterator
+
+import pytest
 
 from private_quant_terminal.data.providers.broker_adapter import BrokerAdapter
 from private_quant_terminal.models.market_depth import MarketDepth

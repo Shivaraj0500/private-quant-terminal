@@ -364,3 +364,83 @@ def test_executor_result_is_deterministic() -> None:
     second = executor.execute(request)
 
     assert first == second
+
+
+def test_equity_curve_contains_one_snapshot_per_candle() -> None:
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+
+    request = make_request(
+        (
+            make_candle(start, 99.0),
+            make_candle(start + timedelta(minutes=5), 98.0),
+            make_candle(start + timedelta(minutes=10), 97.0),
+        )
+    )
+
+    result = ResearchExecutor(initial_equity=100000.0).execute(request)
+
+    assert result.equity_curve == (
+        100000.0,
+        100000.0,
+        100000.0,
+    )
+
+
+def test_equity_curve_marks_open_position_to_market() -> None:
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+
+    request = make_request(
+        (
+            make_candle(start, 101.0),
+            make_candle(start + timedelta(minutes=5), 105.0),
+            make_candle(start + timedelta(minutes=10), 110.0),
+        )
+    )
+
+    result = ResearchExecutor(initial_equity=100000.0).execute(request)
+
+    assert result.trades == ()
+    assert result.equity_curve == (
+        100000.0,
+        100004.0,
+        100009.0,
+    )
+    assert result.final_equity == 100000.0
+
+
+def test_equity_curve_records_realized_equity_after_exit() -> None:
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+
+    request = make_request(
+        (
+            make_candle(start, 101.0),
+            make_candle(start + timedelta(minutes=5), 94.0),
+        )
+    )
+
+    result = ResearchExecutor(initial_equity=100000.0).execute(request)
+
+    assert result.equity_curve == (
+        100000.0,
+        99993.0,
+    )
+    assert result.final_equity == 99993.0
+
+
+def test_equity_curve_is_deterministic() -> None:
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+
+    request = make_request(
+        (
+            make_candle(start, 101.0),
+            make_candle(start + timedelta(minutes=5), 105.0),
+            make_candle(start + timedelta(minutes=10), 94.0),
+        )
+    )
+
+    executor = ResearchExecutor(initial_equity=100000.0)
+
+    first = executor.execute(request)
+    second = executor.execute(request)
+
+    assert first.equity_curve == second.equity_curve

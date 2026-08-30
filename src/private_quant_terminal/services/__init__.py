@@ -10,6 +10,6 @@ __all__ = [
     "MarketDataService",
     "PortfolioService",
     "TechnicalAnalysisService",
-    "TradingExecutionService",
     "TradingExecutionResult",
+    "TradingExecutionService",
 ]

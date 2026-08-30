@@ -7,7 +7,6 @@ from private_quant_terminal.api.schemas.trading import (
 )
 from private_quant_terminal.strategies.signal import Signal
 
-
 router = APIRouter(
     prefix="/trading",
     tags=["trading"],

@@ -38,16 +38,18 @@ class ResearchExecutor:
 
         events: list[ResearchExecutionEvent] = []
         trades: list[ResearchTrade] = []
+        equity_curve: list[float] = []
+        realized_equity = self._initial_equity
 
         position_quantity = 0.0
         entry_price: float | None = None
         entry_time = None
 
-        for candle in request.candles:
+        for index, candle in enumerate(request.candles):
             indicator_names = self._indicator_names(strategy)
             indicator_values = calculate_indicators(
                 indicator_names,
-                request.candles[: request.candles.index(candle) + 1],
+                request.candles[: index + 1],
             )
 
             decision = evaluate_strategy(
@@ -129,19 +131,33 @@ class ResearchExecutor:
                     )
                 )
 
+                realized_equity += net_pnl
+
                 position_quantity = 0.0
                 entry_price = None
                 entry_time = None
 
-        final_equity = self._initial_equity + sum(
-            trade.net_pnl
-            for trade in trades
-        )
+            if (
+                position_quantity > 0.0
+                and entry_price is not None
+            ):
+                unrealized_pnl = (
+                    candle.close - entry_price
+                ) * position_quantity
+            else:
+                unrealized_pnl = 0.0
+
+            equity_curve.append(
+                realized_equity + unrealized_pnl
+            )
+
+        final_equity = realized_equity
 
         return ResearchExecutionResult(
             run_id=request.run.run_id,
             events=tuple(events),
             trades=tuple(trades),
+            equity_curve=tuple(equity_curve),
             final_equity=final_equity,
         )
 

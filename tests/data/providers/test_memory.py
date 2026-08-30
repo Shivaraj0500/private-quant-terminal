@@ -1,7 +1,5 @@
 from datetime import datetime
 
-import pytest
-
 from private_quant_terminal.data.providers.memory import InMemoryMarketDataProvider
 from private_quant_terminal.models.candle import Candle
 from private_quant_terminal.models.instrument import Instrument, InstrumentType

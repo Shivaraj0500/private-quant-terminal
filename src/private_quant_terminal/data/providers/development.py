@@ -1,8 +1,9 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from private_quant_terminal.data.providers.broker_base import (
     BrokerMarketDataProvider,
 )
+from private_quant_terminal.models import Candle
 from private_quant_terminal.models.market_depth import (
     MarketDepth,
     MarketDepthLevel,
@@ -111,7 +112,7 @@ class DevelopmentMarketDataProvider(BrokerMarketDataProvider):
         return Quote(
             symbol=normalized_symbol,
             exchange=str(data["exchange"]),
-            timestamp=datetime.now(timezone.utc),
+            timestamp=datetime.now(UTC),
             last_price=float(data["last_price"]),
             open=float(data["open"]),
             high=float(data["high"]),
@@ -152,4 +153,66 @@ class DevelopmentMarketDataProvider(BrokerMarketDataProvider):
 
     def stream_ticks(self, symbols: list[str]) -> None:
         """Placeholder for the development provider."""
-        return None
+        return
+
+
+    def get_candles(
+        self,
+        symbol: str,
+        timeframe: str = "5m",
+        limit: int = 500,
+    ) -> list[Candle]:
+        """Return deterministic historical candles for development research."""
+
+        normalized_symbol = symbol.upper()
+
+        quote = self.get_quote(normalized_symbol)
+
+        if timeframe != "5m":
+            raise ValueError(
+                f"Development candle data only supports 5m timeframe, got {timeframe}"
+            )
+
+        limit = max(1, min(int(limit), 500))
+
+        # Generate deterministic historical candles ending at the current
+        # development quote. This intentionally avoids randomness so that
+        # research runs remain reproducible.
+        from datetime import timedelta
+
+        candles: list[Candle] = []
+
+        close = quote.last_price
+
+        for index in range(limit, 0, -1):
+            timestamp = quote.timestamp - timedelta(minutes=5 * index)
+
+            # Deterministic oscillation around the current quote.
+            phase = index % 20
+
+            if phase < 5:
+                adjustment = -8.0 + phase * 1.5
+            elif phase < 10:
+                adjustment = -2.0 + (phase - 5) * 2.0
+            elif phase < 15:
+                adjustment = 8.0 - (phase - 10) * 1.5
+            else:
+                adjustment = 0.5 - (phase - 15) * 1.25
+
+            candle_close = round(close + adjustment, 2)
+            candle_open = round(candle_close - 1.20, 2)
+            candle_high = round(candle_close + 2.50, 2)
+            candle_low = round(candle_close - 2.50, 2)
+
+            candles.append(
+                Candle(
+                    timestamp=timestamp,
+                    open=candle_open,
+                    high=candle_high,
+                    low=candle_low,
+                    close=candle_close,
+                    volume=100000.0 + float(index * 100),
+                )
+            )
+
+        return candles

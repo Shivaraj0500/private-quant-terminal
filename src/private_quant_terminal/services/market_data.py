@@ -33,8 +33,33 @@ class MarketDataService:
         symbol: str,
         limit: int | None = None,
     ) -> Sequence[Candle]:
-        """Return cached candles for a symbol."""
+        """Return cached candles, loading development data when necessary."""
+
         candles = self._candle_repository.get_all(symbol)
+
+        if not candles:
+            provider_get_candles = getattr(
+                self._provider,
+                "get_candles",
+                None,
+            )
+
+            if provider_get_candles is not None:
+                requested_limit = limit or 500
+
+                candles = list(
+                    provider_get_candles(
+                        symbol,
+                        timeframe="5m",
+                        limit=requested_limit,
+                    )
+                )
+
+                if candles:
+                    self._candle_repository.save(
+                        symbol,
+                        candles,
+                    )
 
         if limit is not None:
             return tuple(candles[-limit:])

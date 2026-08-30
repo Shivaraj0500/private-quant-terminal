@@ -3,7 +3,6 @@ from urllib.parse import urlencode
 
 from private_quant_terminal.brokers.upstox.config import UpstoxConfig
 
-
 UPSTOX_AUTHORIZATION_URL = "https://api.upstox.com/v2/login/authorization/dialog"
 
 _pending_states: set[str] = set()

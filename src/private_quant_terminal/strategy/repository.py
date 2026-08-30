@@ -134,6 +134,36 @@ class StrategyVersionRepository:
             created_at=datetime.fromisoformat(row["created_at"]),
         )
 
+    def list_all(self) -> list[StrategyVersion]:
+        """Return all persisted strategy versions."""
+
+        with self._database.connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT
+                    strategy_id,
+                    version,
+                    specification_json,
+                    created_at
+                FROM strategy_versions
+                ORDER BY strategy_id, version
+                """
+            ).fetchall()
+
+        return [
+            StrategyVersion(
+                strategy_id=row["strategy_id"],
+                version=row["version"],
+                specification=_strategy_from_json(
+                    row["specification_json"]
+                ),
+                created_at=datetime.fromisoformat(
+                    row["created_at"]
+                ),
+            )
+            for row in rows
+        ]
+
     def next_version(self, strategy_id: str) -> int:
         """Return the next available version number."""
 
@@ -149,6 +179,40 @@ class StrategyVersionRepository:
 
         return int(row["next_version"])
 
+    def list_latest(self) -> list[StrategyVersion]:
+        """Return the latest version of every persisted strategy."""
+
+        with self._database.connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT
+                    strategy_id,
+                    version,
+                    specification_json,
+                    created_at
+                FROM strategy_versions
+                WHERE version = (
+                    SELECT MAX(sv2.version)
+                    FROM strategy_versions sv2
+                    WHERE sv2.strategy_id = strategy_versions.strategy_id
+                )
+                ORDER BY created_at DESC
+                """
+            ).fetchall()
+
+        return [
+            StrategyVersion(
+                strategy_id=row["strategy_id"],
+                version=row["version"],
+                specification=_strategy_from_json(
+                    row["specification_json"]
+                ),
+                created_at=datetime.fromisoformat(
+                    row["created_at"]
+                ),
+            )
+            for row in rows
+        ]
 
 def _strategy_from_json(payload: str) -> StrategyDefinition:
     """Reconstruct a strategy definition from canonical JSON."""

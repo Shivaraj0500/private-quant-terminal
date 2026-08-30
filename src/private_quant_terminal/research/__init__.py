@@ -12,6 +12,10 @@ from private_quant_terminal.research.execution import (
 from private_quant_terminal.research.executor import (
     ResearchExecutor,
 )
+from private_quant_terminal.research.performance import (
+    ResearchPerformanceAnalyzer,
+    ResearchPerformanceReport,
+)
 from private_quant_terminal.research.repository import (
     ResearchRunRepository,
 )
@@ -23,17 +27,21 @@ from private_quant_terminal.research.run import (
     parameters_hash,
 )
 from private_quant_terminal.research.service import (
+    ResearchAnalysisResult,
     ResearchRunCreationResult,
     ResearchRunService,
 )
 
 __all__ = [
+    "ResearchAnalysisResult",
     "ResearchExecutionEvent",
     "ResearchExecutionEventType",
     "ResearchExecutionRequest",
     "ResearchExecutionResult",
     "ResearchExecutor",
     "ResearchParameters",
+    "ResearchPerformanceAnalyzer",
+    "ResearchPerformanceReport",
     "ResearchRun",
     "ResearchRunCreationResult",
     "ResearchRunRepository",

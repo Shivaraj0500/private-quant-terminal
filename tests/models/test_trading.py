@@ -1,3 +1,5 @@
+import pytest
+
 from private_quant_terminal.models.instrument import (
     Instrument,
     InstrumentType,
@@ -8,7 +10,6 @@ from private_quant_terminal.models.trading import (
     Position,
     Side,
 )
-import pytest
 
 
 def create_instrument() -> Instrument:

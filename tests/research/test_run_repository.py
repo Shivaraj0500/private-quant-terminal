@@ -105,3 +105,92 @@ def test_unknown_run_raises(tmp_path) -> None:
         match="Unknown research run",
     ):
         repository.get("missing")
+
+
+def test_update_status_transitions_created_to_running(tmp_path) -> None:
+    repository = ResearchRunRepository(
+        Database(tmp_path / "research.db")
+    )
+
+    run = make_run()
+    repository.save(run)
+
+    repository.update_status(
+        run.run_id,
+        ResearchRunStatus.RUNNING,
+    )
+
+    assert repository.get(run.run_id).status is ResearchRunStatus.RUNNING
+
+
+def test_update_status_transitions_running_to_completed(tmp_path) -> None:
+    repository = ResearchRunRepository(
+        Database(tmp_path / "research.db")
+    )
+
+    run = make_run()
+    repository.save(run)
+    repository.update_status(
+        run.run_id,
+        ResearchRunStatus.RUNNING,
+    )
+
+    repository.update_status(
+        run.run_id,
+        ResearchRunStatus.COMPLETED,
+    )
+
+    assert repository.get(run.run_id).status is ResearchRunStatus.COMPLETED
+
+
+def test_update_status_transitions_running_to_failed(tmp_path) -> None:
+    repository = ResearchRunRepository(
+        Database(tmp_path / "research.db")
+    )
+
+    run = make_run()
+    repository.save(run)
+    repository.update_status(
+        run.run_id,
+        ResearchRunStatus.RUNNING,
+    )
+
+    repository.update_status(
+        run.run_id,
+        ResearchRunStatus.FAILED,
+    )
+
+    assert repository.get(run.run_id).status is ResearchRunStatus.FAILED
+
+
+def test_update_status_rejects_invalid_transition(tmp_path) -> None:
+    repository = ResearchRunRepository(
+        Database(tmp_path / "research.db")
+    )
+
+    run = make_run()
+    repository.save(run)
+
+    with pytest.raises(
+        ValueError,
+        match="Invalid research run status transition",
+    ):
+        repository.update_status(
+            run.run_id,
+            ResearchRunStatus.COMPLETED,
+        )
+
+
+def test_update_status_rejects_unknown_run(tmp_path) -> None:
+    repository = ResearchRunRepository(
+        Database(tmp_path / "research.db")
+    )
+
+    with pytest.raises(
+        KeyError,
+        match="Unknown research run",
+    ):
+        repository.update_status(
+            "missing",
+            ResearchRunStatus.RUNNING,
+        )

@@ -61,7 +61,7 @@ class TestMarketTick:
             MarketTick(
                 symbol="NIFTY",
                 timestamp=datetime(2026, 8, 24, 9, 15),
-                price=Decimal("0"),
+                price=Decimal(0),
             )
 
     def test_rejects_negative_price(self) -> None:

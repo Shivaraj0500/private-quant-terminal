@@ -1,15 +1,16 @@
-from private_quant_terminal.brokers.upstox.session import (
-    UpstoxSessionStore,
-)
-
 from private_quant_terminal.brokers.in_memory_execution import (
     InMemoryBrokerExecution,
 )
+from private_quant_terminal.brokers.upstox.session import (
+    UpstoxSessionStore,
+)
+from private_quant_terminal.core.config import settings
 from private_quant_terminal.data.providers.development import (
     DevelopmentMarketDataProvider,
 )
 from private_quant_terminal.data.repository import CandleRepository
 from private_quant_terminal.execution.engine import ExecutionEngine
+from private_quant_terminal.persistence import Database
 from private_quant_terminal.portfolio.drawdown import (
     DrawdownCalculator,
 )
@@ -22,6 +23,12 @@ from private_quant_terminal.portfolio.risk_calculator import (
 )
 from private_quant_terminal.portfolio.valuation import (
     PortfolioValuationService,
+)
+from private_quant_terminal.research.repository import (
+    ResearchRunRepository,
+)
+from private_quant_terminal.research.service import (
+    ResearchRunService,
 )
 from private_quant_terminal.risk.limits import RiskLimits
 from private_quant_terminal.risk.manager import RiskManager
@@ -36,6 +43,9 @@ from private_quant_terminal.services.trading_execution import (
 from private_quant_terminal.services.trading_workflow import (
     TradingWorkflowService,
 )
+from private_quant_terminal.strategy.repository import (
+    StrategyVersionRepository,
+)
 
 
 class ApplicationContainer:
@@ -43,6 +53,22 @@ class ApplicationContainer:
 
     def __init__(self) -> None:
         self.upstox_session_store = UpstoxSessionStore()
+
+        self.database = Database(
+            settings.data_dir / "private_quant_terminal.db"
+        )
+
+        self.strategy_repository = StrategyVersionRepository(
+            self.database
+        )
+
+        self.research_repository = ResearchRunRepository(
+            self.database
+        )
+
+        self.research_service = ResearchRunService(
+            repository=self.research_repository
+        )
 
         self.position_manager = PositionManager()
 

@@ -12,7 +12,6 @@ from private_quant_terminal.brokers.upstox.token import (
     exchange_authorization_code,
 )
 
-
 router = APIRouter(
     prefix="/broker/upstox",
     tags=["broker-upstox"],

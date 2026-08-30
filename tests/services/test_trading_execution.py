@@ -1,4 +1,3 @@
-import pytest
 
 from private_quant_terminal.brokers.in_memory_execution import (
     InMemoryBrokerExecution,

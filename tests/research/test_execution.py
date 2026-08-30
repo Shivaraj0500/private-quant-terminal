@@ -144,6 +144,7 @@ def test_research_execution_result_is_immutable() -> None:
         run_id="run-1",
         events=(),
         trades=(),
+        equity_curve=(),
         final_equity=100000.0,
     )
 

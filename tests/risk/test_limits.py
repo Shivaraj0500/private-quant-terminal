@@ -45,7 +45,7 @@ class TestRiskLimits:
     def test_rejects_zero_limits(
         self,
         field: str,
-        value: int | float,
+        value: float,
         message: str,
     ) -> None:
         values = {
@@ -88,7 +88,7 @@ class TestRiskLimits:
     def test_rejects_negative_limits(
         self,
         field: str,
-        value: int | float,
+        value: float,
         message: str,
     ) -> None:
         values = {

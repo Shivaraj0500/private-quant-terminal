@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from math import sqrt
-from typing import Sequence
 
 
 def rolling_sharpe_ratio(

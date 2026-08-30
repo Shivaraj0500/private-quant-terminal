@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
 
 
 class SignalType(str, Enum):
@@ -13,5 +12,5 @@ class SignalType(str, Enum):
 class Signal:
     symbol: str
     signal_type: SignalType
-    price: Optional[float] = None
-    reason: Optional[str] = None
+    price: float | None = None
+    reason: str | None = None

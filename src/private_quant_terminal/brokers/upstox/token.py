@@ -4,7 +4,6 @@ import httpx
 
 from private_quant_terminal.brokers.upstox.config import UpstoxConfig
 
-
 UPSTOX_TOKEN_URL = (
     "https://api.upstox.com/v2/login/authorization/token"
 )

@@ -56,4 +56,5 @@ class ResearchExecutionResult:
     run_id: str
     events: tuple[ResearchExecutionEvent, ...]
     trades: tuple[ResearchTrade, ...]
+    equity_curve: tuple[float, ...]
     final_equity: float

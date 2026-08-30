@@ -103,6 +103,58 @@ class ResearchRunRepository:
                 ),
             )
 
+    def update_status(
+        self,
+        run_id: str,
+        status: ResearchRunStatus,
+    ) -> None:
+        """Transition a research run through its lifecycle."""
+
+        allowed_transitions = {
+            ResearchRunStatus.CREATED: {
+                ResearchRunStatus.RUNNING,
+            },
+            ResearchRunStatus.RUNNING: {
+                ResearchRunStatus.COMPLETED,
+                ResearchRunStatus.FAILED,
+            },
+        }
+
+        with self._database.transaction() as connection:
+            row = connection.execute(
+                """
+                SELECT status
+                FROM research_runs
+                WHERE run_id = ?
+                """,
+                (run_id,),
+            ).fetchone()
+
+            if row is None:
+                raise KeyError(
+                    f"Unknown research run: {run_id}"
+                )
+
+            current_status = ResearchRunStatus(row["status"])
+
+            if status not in allowed_transitions.get(
+                current_status,
+                set(),
+            ):
+                raise ValueError(
+                    "Invalid research run status transition: "
+                    f"{current_status.value} -> {status.value}"
+                )
+
+            connection.execute(
+                """
+                UPDATE research_runs
+                SET status = ?
+                WHERE run_id = ?
+                """,
+                (status.value, run_id),
+            )
+
     def get(self, run_id: str) -> ResearchRun:
         """Retrieve one research run."""
 
