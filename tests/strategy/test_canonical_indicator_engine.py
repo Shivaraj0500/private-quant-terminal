@@ -126,7 +126,22 @@ def test_canonical_matches_existing_indicator_engine(
     )
 
     assert canonical.timestamps == existing.timestamps
-    assert canonical.values == existing.values
+
+    from private_quant_terminal.strategy.indicator_warmup import (
+        canonical_warmup,
+    )
+
+    warmup = canonical_warmup(
+        name,
+        parameters,
+    )
+
+    assert all(
+        canonical.value_at(index) is None
+        for index in range(min(warmup, len(canonical)))
+    )
+
+    assert canonical.values[warmup:] == existing.values[warmup:]
 
 
 def test_unknown_indicator_is_rejected() -> None:

@@ -9,6 +9,9 @@ from private_quant_terminal.strategy.expressions import (
 from private_quant_terminal.strategy.indicator_registry import (
     IndicatorRegistry,
 )
+from private_quant_terminal.strategy.indicator_warmup import (
+    canonical_warmup,
+)
 from private_quant_terminal.strategy.indicator_providers import (
     IndicatorResult,
 )
@@ -54,7 +57,41 @@ class CanonicalIndicatorEngine:
             candles,
         )
 
-        return result
+        return self._apply_canonical_warmup(
+            spec,
+            result,
+            parameters,
+        )
+
+    @staticmethod
+    def _apply_canonical_warmup(
+        spec,
+        result: IndicatorResult,
+        parameters: dict[str, object],
+    ) -> IndicatorResult:
+        warmup = canonical_warmup(
+            spec.id,
+            parameters,
+        )
+
+        if warmup <= 0:
+            return result
+
+        outputs = {}
+
+        for output_name, series in result.outputs.items():
+            values = list(series.values)
+
+            for index in range(min(warmup, len(values))):
+                values[index] = None
+
+            outputs[output_name] = TimeSeries(
+                timestamps=series.timestamps,
+                values=tuple(values),
+            )
+
+        return IndicatorResult(outputs)
+
 
     @staticmethod
     def _validate_result(
