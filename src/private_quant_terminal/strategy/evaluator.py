@@ -1,9 +1,17 @@
 from __future__ import annotations
 
-from datetime import datetime, time
-from typing import Sequence
+from collections.abc import Sequence
 
 from private_quant_terminal.models import Candle
+from private_quant_terminal.strategy.builtin_indicator_provider import (
+    BuiltinStrategyIndicatorProvider,
+)
+from private_quant_terminal.strategy.builtin_indicator_specs import (
+    builtin_indicator_specs,
+)
+from private_quant_terminal.strategy.canonical_indicator_engine import (
+    CanonicalIndicatorEngine,
+)
 from private_quant_terminal.strategy.conditions import (
     ComparisonCondition,
     ComparisonOperator,
@@ -22,8 +30,10 @@ from private_quant_terminal.strategy.expressions import (
     TimeField,
     VariableExpression,
 )
+from private_quant_terminal.strategy.indicator_registry import (
+    IndicatorRegistry,
+)
 from private_quant_terminal.strategy.indicators import (
-    IndicatorEngine,
     price_series,
 )
 from private_quant_terminal.strategy.variables import (
@@ -36,13 +46,22 @@ class ExpressionEvaluator:
 
     def __init__(
         self,
-        indicator_engine: IndicatorEngine | None = None,
+        indicator_engine: CanonicalIndicatorEngine | None = None,
     ) -> None:
         self._indicator_engine = (
-            indicator_engine
-            if indicator_engine is not None
-            else IndicatorEngine()
+            indicator_engine if indicator_engine is not None else self._default_indicator_engine()
         )
+
+    @staticmethod
+    def _default_indicator_engine() -> CanonicalIndicatorEngine:
+        registry = IndicatorRegistry()
+
+        for spec in builtin_indicator_specs().values():
+            registry.register_spec(spec)
+
+        registry.register_provider(BuiltinStrategyIndicatorProvider())
+
+        return CanonicalIndicatorEngine(registry)
 
     def evaluate(
         self,
@@ -54,9 +73,7 @@ class ExpressionEvaluator:
         """Evaluate an expression at a specific candle index."""
 
         if index < 0 or index >= len(candles):
-            raise IndexError(
-                f"candle index out of range: {index}"
-            )
+            raise IndexError(f"candle index out of range: {index}")
 
         if isinstance(expression, ConstantExpression):
             return expression.value
@@ -69,12 +86,12 @@ class ExpressionEvaluator:
             )
 
         if isinstance(expression, IndicatorExpression):
-            series = self._indicator_engine.calculate(
+            result = self._indicator_engine.calculate(
                 expression,
                 candles,
             )
 
-            return series.value_at(index)
+            return result.output(expression.output).value_at(index)
 
         if isinstance(expression, TimeExpression):
             return self._time(
@@ -84,15 +101,11 @@ class ExpressionEvaluator:
 
         if isinstance(expression, VariableExpression):
             if context is None:
-                raise ValueError(
-                    "Runtime context is required for variable expressions."
-                )
+                raise ValueError("Runtime context is required for variable expressions.")
 
             return context.resolve(expression.name)
 
-        raise TypeError(
-            f"Unsupported expression: {type(expression).__name__}"
-        )
+        raise TypeError(f"Unsupported expression: {type(expression).__name__}")
 
     @staticmethod
     def _price(
@@ -123,9 +136,7 @@ class ExpressionEvaluator:
         if expression.field is TimeField.DAY_OF_WEEK:
             return timestamp.weekday()
 
-        raise TypeError(
-            f"Unsupported time field: {expression.field}"
-        )
+        raise TypeError(f"Unsupported time field: {expression.field}")
 
 
 class ConditionEvaluator:
@@ -136,9 +147,7 @@ class ConditionEvaluator:
         expression_evaluator: ExpressionEvaluator | None = None,
     ) -> None:
         self._expressions = (
-            expression_evaluator
-            if expression_evaluator is not None
-            else ExpressionEvaluator()
+            expression_evaluator if expression_evaluator is not None else ExpressionEvaluator()
         )
 
     def evaluate(
@@ -172,9 +181,7 @@ class ConditionEvaluator:
                 context,
             )
 
-        raise TypeError(
-            f"Unsupported condition: {type(condition).__name__}"
-        )
+        raise TypeError(f"Unsupported condition: {type(condition).__name__}")
 
     def _comparison(
         self,
@@ -222,10 +229,7 @@ class ConditionEvaluator:
         except TypeError:
             return False
 
-        raise TypeError(
-            f"Unsupported comparison operator: "
-            f"{condition.operator}"
-        )
+        raise TypeError(f"Unsupported comparison operator: {condition.operator}")
 
     def _crossing(
         self,
@@ -276,21 +280,12 @@ class ConditionEvaluator:
             return False
 
         if condition.operator is CrossingOperator.CROSS_ABOVE:
-            return (
-                previous_left <= previous_right
-                and current_left > current_right
-            )
+            return previous_left <= previous_right and current_left > current_right
 
         if condition.operator is CrossingOperator.CROSS_BELOW:
-            return (
-                previous_left >= previous_right
-                and current_left < current_right
-            )
+            return previous_left >= previous_right and current_left < current_right
 
-        raise TypeError(
-            f"Unsupported crossing operator: "
-            f"{condition.operator}"
-        )
+        raise TypeError(f"Unsupported crossing operator: {condition.operator}")
 
     def _logical(
         self,
@@ -323,9 +318,7 @@ class ConditionEvaluator:
 
         if condition.operator is LogicalOperator.NOT:
             if len(condition.conditions) != 1:
-                raise ValueError(
-                    "NOT must contain exactly one condition."
-                )
+                raise ValueError("NOT must contain exactly one condition.")
 
             return not self.evaluate(
                 condition.conditions[0],
@@ -334,7 +327,4 @@ class ConditionEvaluator:
                 context,
             )
 
-        raise TypeError(
-            f"Unsupported logical operator: "
-            f"{condition.operator}"
-        )
+        raise TypeError(f"Unsupported logical operator: {condition.operator}")
