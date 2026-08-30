@@ -61,6 +61,7 @@ class IndicatorExpression:
     name: str
     parameters: tuple[tuple[str, float], ...] = ()
     timeframe: str | None = None
+    output: str = "value"
 
     @property
     def expression_type(self) -> ExpressionType:
@@ -113,6 +114,7 @@ def indicator(
     *,
     parameters: dict[str, float] | None = None,
     timeframe: str | None = None,
+    output: str = "value",
 ) -> IndicatorExpression:
     normalized_parameters = tuple(
         sorted(
@@ -124,10 +126,16 @@ def indicator(
         )
     )
 
+    normalized_output = output.strip().lower()
+
+    if not normalized_output:
+        raise ValueError("Indicator output cannot be empty.")
+
     return IndicatorExpression(
         name=name.strip().upper(),
         parameters=normalized_parameters,
         timeframe=timeframe,
+        output=normalized_output,
     )
 
 
