@@ -94,10 +94,18 @@ export async function executeResearchRun(
   return response.data;
 }
 
+export async function listResearchRuns(): Promise<ResearchRunSummary[]> {
+  const response = await apiClient.get<ResearchRunSummary[]>(
+    "/research/runs",
+  );
+
+  return response.data;
+}
+
 export async function getResearchRun(
   runId: string,
-): Promise<ResearchRunSummary> {
-  const response = await apiClient.get<ResearchRunSummary>(
+): Promise<ResearchRunResponse> {
+  const response = await apiClient.get<ResearchRunResponse>(
     `/research/runs/${encodeURIComponent(runId)}`,
   );
 

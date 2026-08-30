@@ -176,6 +176,11 @@ class ResearchRunService:
             )
             raise
 
+        self._repository.save_result(
+            execution=execution,
+            performance=performance,
+        )
+
         if should_update_lifecycle:
             self._repository.update_status(
                 run.run_id,
