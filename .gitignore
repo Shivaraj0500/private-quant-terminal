@@ -221,3 +221,9 @@ __pycache__/
 .pytest_cache/
 .ruff_cache/
 *.save
+
+# Local application runtime data
+data/
+*.db
+*.db-wal
+*.db-shm
