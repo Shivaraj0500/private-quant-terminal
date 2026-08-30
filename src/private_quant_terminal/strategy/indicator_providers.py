@@ -44,6 +44,18 @@ class IndicatorProvider(ABC):
     def provider_id(self) -> str:
         """Return the stable provider identity."""
 
+    def supports(
+        self,
+        spec: IndicatorSpec,
+    ) -> bool:
+        """Return whether this provider can calculate the specification.
+
+        Providers may override this capability check. The default preserves
+        compatibility with providers whose canonical specification explicitly
+        selects them.
+        """
+        return spec.provider == self.provider_id
+
     @abstractmethod
     def calculate(
         self,

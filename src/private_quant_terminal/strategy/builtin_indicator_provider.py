@@ -31,6 +31,12 @@ class BuiltinStrategyIndicatorProvider(IndicatorProvider):
     def provider_id(self) -> str:
         return "builtin_strategy"
 
+    def supports(
+        self,
+        spec: IndicatorSpec,
+    ) -> bool:
+        return spec.provider == self.provider_id
+
     def calculate(
         self,
         spec: IndicatorSpec,

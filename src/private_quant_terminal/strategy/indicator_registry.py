@@ -148,6 +148,12 @@ class IndicatorRegistry:
                 f"indicator {spec.id}"
             )
 
+        if not provider.supports(spec):
+            raise ValueError(
+                f"Provider {provider.provider_id} does not support "
+                f"indicator {spec.id}"
+            )
+
         return provider
 
     def specs(self) -> MappingProxyType:
