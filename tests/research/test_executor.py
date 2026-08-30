@@ -379,10 +379,15 @@ def test_equity_curve_contains_one_snapshot_per_candle() -> None:
 
     result = ResearchExecutor(initial_equity=100000.0).execute(request)
 
-    assert result.equity_curve == (
+    assert tuple(point.equity for point in result.equity_curve) == (
         100000.0,
         100000.0,
         100000.0,
+    )
+    assert tuple(point.timestamp for point in result.equity_curve) == (
+        start,
+        start + timedelta(minutes=5),
+        start + timedelta(minutes=10),
     )
 
 
@@ -400,10 +405,15 @@ def test_equity_curve_marks_open_position_to_market() -> None:
     result = ResearchExecutor(initial_equity=100000.0).execute(request)
 
     assert result.trades == ()
-    assert result.equity_curve == (
+    assert tuple(point.equity for point in result.equity_curve) == (
         100000.0,
         100004.0,
         100009.0,
+    )
+    assert tuple(point.timestamp for point in result.equity_curve) == (
+        start,
+        start + timedelta(minutes=5),
+        start + timedelta(minutes=10),
     )
     assert result.final_equity == 100000.0
 
@@ -420,9 +430,13 @@ def test_equity_curve_records_realized_equity_after_exit() -> None:
 
     result = ResearchExecutor(initial_equity=100000.0).execute(request)
 
-    assert result.equity_curve == (
+    assert tuple(point.equity for point in result.equity_curve) == (
         100000.0,
         99993.0,
+    )
+    assert tuple(point.timestamp for point in result.equity_curve) == (
+        start,
+        start + timedelta(minutes=5),
     )
     assert result.final_equity == 99993.0
 

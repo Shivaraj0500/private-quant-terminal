@@ -64,11 +64,16 @@ export interface ResearchPerformance {
   calmar_ratio: number;
 }
 
+export interface ResearchEquityPoint {
+  timestamp: string;
+  equity: number;
+}
+
 export interface ResearchExecution {
   run_id: string;
   events: ResearchEvent[];
   trades: ResearchTrade[];
-  equity_curve: number[];
+  equity_curve: ResearchEquityPoint[];
   final_equity: number;
 }
 

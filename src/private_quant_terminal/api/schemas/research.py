@@ -68,11 +68,16 @@ class ResearchPerformanceResponse(BaseModel):
     calmar_ratio: float
 
 
+class ResearchEquityPointResponse(BaseModel):
+    timestamp: datetime
+    equity: float
+
+
 class ResearchExecutionResponse(BaseModel):
     run_id: str
     events: list[ResearchEventResponse]
     trades: list[ResearchTradeResponse]
-    equity_curve: list[float]
+    equity_curve: list[ResearchEquityPointResponse]
     final_equity: float
 
 

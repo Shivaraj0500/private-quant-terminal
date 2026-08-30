@@ -7,6 +7,7 @@ from private_quant_terminal.research.execution import (
     ResearchExecutionEventType,
     ResearchExecutionRequest,
     ResearchExecutionResult,
+    ResearchEquityPoint,
     ResearchTrade,
 )
 from private_quant_terminal.research.indicators import calculate_indicators
@@ -38,7 +39,7 @@ class ResearchExecutor:
 
         events: list[ResearchExecutionEvent] = []
         trades: list[ResearchTrade] = []
-        equity_curve: list[float] = []
+        equity_curve: list[ResearchEquityPoint] = []
         realized_equity = self._initial_equity
 
         position_quantity = 0.0
@@ -148,7 +149,10 @@ class ResearchExecutor:
                 unrealized_pnl = 0.0
 
             equity_curve.append(
-                realized_equity + unrealized_pnl
+                ResearchEquityPoint(
+                    timestamp=candle.timestamp,
+                    equity=realized_equity + unrealized_pnl,
+                )
             )
 
         final_equity = realized_equity

@@ -7,6 +7,7 @@ from private_quant_terminal.research.execution import (
     ResearchExecutionEventType,
     ResearchExecutionRequest,
     ResearchExecutionResult,
+    ResearchEquityPoint,
     ResearchTrade,
 )
 from private_quant_terminal.research.executor import (
@@ -38,6 +39,7 @@ __all__ = [
     "ResearchExecutionEventType",
     "ResearchExecutionRequest",
     "ResearchExecutionResult",
+    "ResearchEquityPoint",
     "ResearchExecutor",
     "ResearchParameters",
     "ResearchPerformanceAnalyzer",

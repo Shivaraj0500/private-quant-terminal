@@ -3535,27 +3535,109 @@ button {
 }
 
 .equity-curve {
-  height: 260px;
-  display: flex;
-  align-items: flex-end;
-  gap: 3px;
-  padding: 20px 4px 4px;
   border-top: 1px solid var(--border);
+  padding-top: 18px;
 }
 
-.equity-bar {
-  flex: 1;
-  min-width: 2px;
-  height: 100%;
-  display: flex;
-  align-items: flex-end;
-}
-
-.equity-bar div {
+.equity-chart {
   width: 100%;
-  min-height: 4px;
-  border-radius: 3px 3px 0 0;
-  background: var(--accent);
+}
+
+.equity-chart-meta {
+  display: flex;
+  align-items: flex-start;
+  gap: 32px;
+  margin-bottom: 10px;
+}
+
+.equity-chart-meta div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.equity-chart-meta span {
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  opacity: 0.55;
+}
+
+.equity-chart-meta strong {
+  font-size: 15px;
+}
+
+.equity-chart-scroll {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.equity-chart-svg {
+  display: block;
+  width: 100%;
+  min-width: 720px;
+  height: 300px;
+  overflow: visible;
+}
+
+.equity-grid-line {
+  stroke: var(--border);
+  stroke-width: 1;
+  stroke-dasharray: 4 5;
+}
+
+.equity-line {
+  stroke: var(--accent);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.equity-point {
+  fill: var(--accent);
+  stroke: var(--panel);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.equity-axis-tick {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.equity-axis-label,
+.equity-axis-time {
+  fill: var(--text-muted);
+  font-size: 11px;
+}
+
+.equity-axis-time {
+  font-size: 9px;
+  opacity: 0.7;
+}
+
+.equity-initial-line {
+  stroke: var(--text-muted);
+  stroke-width: 1;
+  stroke-dasharray: 3 5;
+  opacity: 0.55;
+}
+
+.equity-chart-range {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 6px;
+  font-size: 10px;
+  opacity: 0.5;
+}
+
+.equity-curve-empty {
+  min-height: 220px;
+  display: grid;
+  place-items: center;
+  border-top: 1px solid var(--border);
+  opacity: 0.55;
 }
 
 .research-table-wrapper {

@@ -50,11 +50,19 @@ class ResearchExecutionEvent:
 
 
 @dataclass(frozen=True)
+class ResearchEquityPoint:
+    """One timestamped mark-to-market equity observation."""
+
+    timestamp: datetime
+    equity: float
+
+
+@dataclass(frozen=True)
 class ResearchExecutionResult:
     """Immutable result produced by research execution."""
 
     run_id: str
     events: tuple[ResearchExecutionEvent, ...]
     trades: tuple[ResearchTrade, ...]
-    equity_curve: tuple[float, ...]
+    equity_curve: tuple[ResearchEquityPoint, ...]
     final_equity: float

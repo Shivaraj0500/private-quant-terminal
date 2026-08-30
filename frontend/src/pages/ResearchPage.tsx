@@ -436,25 +436,10 @@ export function ResearchPage() {
               </span>
             </div>
 
-            <div className="equity-curve">
-              {result.execution.equity_curve.map((value, index) => {
-                const curve = result.execution.equity_curve;
-                const minimum = Math.min(...curve);
-                const maximum = Math.max(...curve);
-                const range = maximum - minimum || 1;
-                const height = ((value - minimum) / range) * 100;
-
-                return (
-                  <div
-                    className="equity-bar"
-                    key={`${index}-${value}`}
-                    title={`₹${formatNumber(value)}`}
-                  >
-                    <div style={{ height: `${Math.max(height, 4)}%` }} />
-                  </div>
-                );
-              })}
-            </div>
+            <EquityCurve
+              points={result.execution.equity_curve}
+              initialEquity={initialEquity}
+            />
           </article>
 
           <article className="workspace-card">
@@ -522,6 +507,212 @@ export function ResearchPage() {
         </>
       )}
     </section>
+  );
+}
+
+function EquityCurve({
+  points,
+  initialEquity,
+}: {
+  points: Array<{
+    timestamp: string;
+    equity: number;
+  }>;
+  initialEquity: number;
+}) {
+  if (points.length === 0) {
+    return (
+      <div className="equity-curve-empty">
+        No equity observations were produced.
+      </div>
+    );
+  }
+
+  const width = 1000;
+  const height = 300;
+  const paddingLeft = 72;
+  const paddingRight = 24;
+  const paddingTop = 28;
+  const paddingBottom = 42;
+
+  const plotWidth = width - paddingLeft - paddingRight;
+  const plotHeight = height - paddingTop - paddingBottom;
+
+  const equities = points.map((point) => point.equity);
+  const minimum = Math.min(...equities, initialEquity);
+  const maximum = Math.max(...equities, initialEquity);
+  const range = maximum - minimum || 1;
+
+  const x = (index: number) =>
+    paddingLeft +
+    (points.length === 1
+      ? plotWidth / 2
+      : (index / (points.length - 1)) * plotWidth);
+
+  const y = (equity: number) =>
+    paddingTop +
+    ((maximum - equity) / range) * plotHeight;
+
+  const line = points
+    .map((point, index) => `${x(index)},${y(point.equity)}`)
+    .join(" ");
+
+  const first = points[0];
+  const last = points[points.length - 1];
+
+  const formatAxisDate = (timestamp: string) =>
+    new Date(timestamp).toLocaleDateString([], {
+      month: "short",
+      day: "numeric",
+    });
+
+  const formatAxisTime = (timestamp: string) =>
+    new Date(timestamp).toLocaleTimeString([], {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+  const axisIndexes =
+    points.length <= 5
+      ? points.map((_, index) => index)
+      : [0, Math.floor((points.length - 1) / 2), points.length - 1];
+
+  const gridValues = [maximum, minimum + range / 2, minimum];
+
+  return (
+    <div className="equity-chart">
+      <div className="equity-chart-meta">
+        <div>
+          <span>FINAL EQUITY</span>
+          <strong>₹{formatNumber(last.equity)}</strong>
+        </div>
+
+        <div>
+          <span>CHANGE</span>
+          <strong
+            className={
+              last.equity - initialEquity >= 0
+                ? "performance-positive"
+                : "performance-negative"
+            }
+          >
+            {last.equity - initialEquity >= 0 ? "+" : ""}
+            ₹{formatNumber(last.equity - initialEquity)}
+          </strong>
+        </div>
+
+        <div>
+          <span>OBSERVATIONS</span>
+          <strong>{points.length}</strong>
+        </div>
+      </div>
+
+      <div className="equity-chart-scroll">
+        <svg
+          className="equity-chart-svg"
+          viewBox={`0 0 ${width} ${height}`}
+          role="img"
+          aria-label="Research equity curve"
+        >
+          {gridValues.map((value) => (
+            <g key={value}>
+              <line
+                x1={paddingLeft}
+                x2={width - paddingRight}
+                y1={y(value)}
+                y2={y(value)}
+                className="equity-grid-line"
+              />
+
+              <text
+                x={paddingLeft - 12}
+                y={y(value) + 4}
+                textAnchor="end"
+                className="equity-axis-label"
+              >
+                ₹{formatNumber(value)}
+              </text>
+            </g>
+          ))}
+
+          <polyline
+            points={line}
+            fill="none"
+            className="equity-line"
+          />
+
+          {points.map((point, index) => (
+            <circle
+              key={`${point.timestamp}-${index}`}
+              cx={x(index)}
+              cy={y(point.equity)}
+              r={points.length > 100 ? 1.5 : 3}
+              className="equity-point"
+            >
+              <title>
+                {formatAxisDate(point.timestamp)}{" "}
+                {formatAxisTime(point.timestamp)} — ₹
+                {formatNumber(point.equity)}
+              </title>
+            </circle>
+          ))}
+
+          {axisIndexes.map((index) => {
+            const point = points[index];
+
+            return (
+              <g key={`axis-${point.timestamp}-${index}`}>
+                <line
+                  x1={x(index)}
+                  x2={x(index)}
+                  y1={height - paddingBottom}
+                  y2={height - paddingBottom + 5}
+                  className="equity-axis-tick"
+                />
+
+                <text
+                  x={x(index)}
+                  y={height - 16}
+                  textAnchor="middle"
+                  className="equity-axis-label"
+                >
+                  {formatAxisDate(point.timestamp)}
+                </text>
+
+                <text
+                  x={x(index)}
+                  y={height - 3}
+                  textAnchor="middle"
+                  className="equity-axis-time"
+                >
+                  {formatAxisTime(point.timestamp)}
+                </text>
+              </g>
+            );
+          })}
+
+          <line
+            x1={paddingLeft}
+            x2={width - paddingRight}
+            y1={y(initialEquity)}
+            y2={y(initialEquity)}
+            className="equity-initial-line"
+          />
+        </svg>
+      </div>
+
+      <div className="equity-chart-range">
+        <span>
+          Start: {formatAxisDate(first.timestamp)}{" "}
+          {formatAxisTime(first.timestamp)}
+        </span>
+
+        <span>
+          End: {formatAxisDate(last.timestamp)}{" "}
+          {formatAxisTime(last.timestamp)}
+        </span>
+      </div>
+    </div>
   );
 }
 

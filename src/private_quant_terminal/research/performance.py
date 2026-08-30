@@ -43,12 +43,18 @@ class ResearchPerformanceAnalyzer:
         )
 
         returns = self._calculate_returns(
-            execution.equity_curve,
+            tuple(
+                point.equity if hasattr(point, "equity") else float(point)
+                for point in execution.equity_curve
+            ),
         )
 
         max_drawdown, max_drawdown_percent = (
             self._calculate_max_drawdown(
-                execution.equity_curve,
+                tuple(
+                point.equity if hasattr(point, "equity") else float(point)
+                for point in execution.equity_curve
+            ),
             )
         )
 

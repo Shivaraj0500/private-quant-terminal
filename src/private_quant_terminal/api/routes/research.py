@@ -141,7 +141,13 @@ def _to_response(result) -> ResearchRunResponse:
                 )
                 for trade in result.execution.trades
             ],
-            equity_curve=list(result.execution.equity_curve),
+            equity_curve=[
+                ResearchEquityPointResponse(
+                    timestamp=point.timestamp,
+                    equity=point.equity,
+                )
+                for point in result.execution.equity_curve
+            ],
             final_equity=result.execution.final_equity,
         ),
         performance=ResearchPerformanceResponse(
