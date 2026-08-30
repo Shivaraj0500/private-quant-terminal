@@ -39,6 +39,22 @@ class CanonicalIndicatorEngine:
             expression.name
         )
 
+        valid_outputs = {
+            output.name.strip().lower()
+            for output in spec.outputs
+        }
+
+        requested_output = expression.output.strip().lower()
+
+        if requested_output not in valid_outputs:
+            raise ValueError(
+                f"Unknown indicator output "
+                f"{expression.output!r} for indicator "
+                f"{spec.id}. "
+                f"Available outputs: "
+                f"{sorted(valid_outputs)!r}"
+            )
+
         provider = self._registry.resolve_provider_for(
             spec
         )
