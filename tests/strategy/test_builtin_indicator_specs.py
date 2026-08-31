@@ -16,6 +16,7 @@ def test_builtin_catalog_contains_core_indicators() -> None:
         "ATR",
         "BBANDS",
         "MACD",
+        "STOCH",
         "SUPERTREND",
         "MOMENTUM",
         "ROC",

@@ -250,6 +250,7 @@ def test_talib_provider_supports_only_declared_talib_indicators(
         "ATR",
         "BBANDS",
         "MACD",
+        "STOCH",
         "MOMENTUM",
         "ROC",
         "OBV",

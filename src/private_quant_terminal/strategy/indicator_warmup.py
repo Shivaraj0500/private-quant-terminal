@@ -53,6 +53,31 @@ def canonical_warmup(
     if not normalized_output:
         raise ValueError("output name must not be empty")
 
+    if normalized_id == "STOCH":
+        fastk_period = _parameter(
+            parameters,
+            "fastk_period",
+            default=5,
+        )
+        slowk_period = _parameter(
+            parameters,
+            "slowk_period",
+            default=3,
+        )
+        slowd_period = _parameter(
+            parameters,
+            "slowd_period",
+            default=3,
+        )
+
+        if normalized_output == "slowk":
+            return fastk_period + slowk_period - 2
+
+        if normalized_output == "slowd":
+            return fastk_period + slowk_period + slowd_period - 3
+
+        raise ValueError(f"Unknown indicator output {output_name!r} for STOCH")
+
     if normalized_id == "MACD":
         fastperiod = _parameter(
             parameters,

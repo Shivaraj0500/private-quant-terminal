@@ -27,6 +27,7 @@ class TALibIndicatorProvider(IndicatorProvider):
         "ATR",
         "BBANDS",
         "MACD",
+        "STOCH",
         "MOMENTUM",
         "ROC",
         "OBV",
@@ -116,6 +117,57 @@ class TALibIndicatorProvider(IndicatorProvider):
                     "histogram": self._series(
                         timestamps,
                         histogram,
+                    ),
+                }
+            )
+
+        if spec.id == "STOCH":
+            fastk_period = self._period_parameter(
+                parameters,
+                "fastk_period",
+                default=5,
+            )
+            slowk_period = self._period_parameter(
+                parameters,
+                "slowk_period",
+                default=3,
+            )
+            slowk_matype = self._matype_parameter(
+                parameters,
+                "slowk_matype",
+                default=0,
+            )
+            slowd_period = self._period_parameter(
+                parameters,
+                "slowd_period",
+                default=3,
+            )
+            slowd_matype = self._matype_parameter(
+                parameters,
+                "slowd_matype",
+                default=0,
+            )
+
+            slowk, slowd = talib.STOCH(
+                high,
+                low,
+                close,
+                fastk_period=fastk_period,
+                slowk_period=slowk_period,
+                slowk_matype=slowk_matype,
+                slowd_period=slowd_period,
+                slowd_matype=slowd_matype,
+            )
+
+            return IndicatorResult(
+                outputs={
+                    "slowk": self._series(
+                        timestamps,
+                        slowk,
+                    ),
+                    "slowd": self._series(
+                        timestamps,
+                        slowd,
                     ),
                 }
             )
@@ -235,6 +287,35 @@ class TALibIndicatorProvider(IndicatorProvider):
             timestamps=timestamps,
             values=tuple(None if not np.isfinite(value) else float(value) for value in values),
         )
+
+    @staticmethod
+    def _matype_parameter(
+        parameters: dict[str, float],
+        name: str,
+        *,
+        default: int,
+    ) -> int:
+        value = parameters.get(name, default)
+
+        if isinstance(value, bool):
+            raise ValueError(  # noqa: TRY004
+                f"{name} must be a non-negative integer"
+            )
+
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{name} must be a non-negative integer") from exc
+
+        if not numeric.is_integer():
+            raise ValueError(f"{name} must be a non-negative integer")
+
+        matype = int(numeric)
+
+        if matype < 0:
+            raise ValueError(f"{name} must be a non-negative integer")
+
+        return matype
 
     @staticmethod
     def _period_parameter(

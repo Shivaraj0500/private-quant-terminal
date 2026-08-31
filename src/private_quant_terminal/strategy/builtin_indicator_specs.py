@@ -164,6 +164,63 @@ def builtin_indicator_specs() -> dict[str, IndicatorSpec]:
             deterministic=True,
         ),
         IndicatorSpec(
+            id="STOCH",
+            name="Stochastic Oscillator",
+            version="1.0.0",
+            category="MOMENTUM",
+            description="Stochastic oscillator with slow %K and slow %D outputs.",
+            parameters=(
+                IndicatorParameterSpec(
+                    name="fastk_period",
+                    parameter_type=IndicatorParameterType.INTEGER,
+                    required=False,
+                    default=5,
+                    minimum=1,
+                ),
+                IndicatorParameterSpec(
+                    name="slowk_period",
+                    parameter_type=IndicatorParameterType.INTEGER,
+                    required=False,
+                    default=3,
+                    minimum=1,
+                ),
+                IndicatorParameterSpec(
+                    name="slowk_matype",
+                    parameter_type=IndicatorParameterType.INTEGER,
+                    required=False,
+                    default=0,
+                    minimum=0,
+                ),
+                IndicatorParameterSpec(
+                    name="slowd_period",
+                    parameter_type=IndicatorParameterType.INTEGER,
+                    required=False,
+                    default=3,
+                    minimum=1,
+                ),
+                IndicatorParameterSpec(
+                    name="slowd_matype",
+                    parameter_type=IndicatorParameterType.INTEGER,
+                    required=False,
+                    default=0,
+                    minimum=0,
+                ),
+            ),
+            outputs=(
+                IndicatorOutputSpec(
+                    name="slowk",
+                    description="Slow stochastic %K line.",
+                ),
+                IndicatorOutputSpec(
+                    name="slowd",
+                    description="Slow stochastic %D line.",
+                ),
+            ),
+            warmup=0,
+            provider="talib",
+            deterministic=True,
+        ),
+        IndicatorSpec(
             id="SUPERTREND",
             name="Supertrend",
             version="1.0.0",

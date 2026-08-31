@@ -147,6 +147,7 @@ def test_catalog_returns_registered_specs() -> None:
         "ATR",
         "BBANDS",
         "MACD",
+        "STOCH",
         "SUPERTREND",
         "MOMENTUM",
         "ROC",
