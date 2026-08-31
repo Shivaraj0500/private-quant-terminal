@@ -116,6 +116,54 @@ def builtin_indicator_specs() -> dict[str, IndicatorSpec]:
             deterministic=True,
         ),
         IndicatorSpec(
+            id="MACD",
+            name="Moving Average Convergence/Divergence",
+            version="1.0.0",
+            category="MOMENTUM",
+            description="Moving Average Convergence/Divergence with signal and histogram outputs.",
+            parameters=(
+                IndicatorParameterSpec(
+                    name="fastperiod",
+                    parameter_type=IndicatorParameterType.INTEGER,
+                    required=False,
+                    default=12,
+                    minimum=1,
+                ),
+                IndicatorParameterSpec(
+                    name="slowperiod",
+                    parameter_type=IndicatorParameterType.INTEGER,
+                    required=False,
+                    default=26,
+                    minimum=1,
+                ),
+                IndicatorParameterSpec(
+                    name="signalperiod",
+                    parameter_type=IndicatorParameterType.INTEGER,
+                    required=False,
+                    default=9,
+                    minimum=1,
+                ),
+            ),
+            outputs=(
+                IndicatorOutputSpec(
+                    name="macd",
+                    description="MACD line.",
+                ),
+                IndicatorOutputSpec(
+                    name="signal",
+                    description="MACD signal line.",
+                ),
+                IndicatorOutputSpec(
+                    name="histogram",
+                    description="MACD histogram.",
+                ),
+            ),
+            warmup=0,
+            provider="talib",
+            aliases=("macd_line",),
+            deterministic=True,
+        ),
+        IndicatorSpec(
             id="SUPERTREND",
             name="Supertrend",
             version="1.0.0",

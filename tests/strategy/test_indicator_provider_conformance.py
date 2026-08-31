@@ -249,6 +249,7 @@ def test_talib_provider_supports_only_declared_talib_indicators(
         "RSI",
         "ATR",
         "BBANDS",
+        "MACD",
         "MOMENTUM",
         "ROC",
         "OBV",

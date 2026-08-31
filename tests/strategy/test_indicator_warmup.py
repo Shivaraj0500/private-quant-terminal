@@ -25,10 +25,13 @@ def test_canonical_warmup(
     parameters: dict[str, float],
     expected: int,
 ) -> None:
-    assert canonical_warmup(
-        indicator_id,
-        parameters,
-    ) == expected
+    assert (
+        canonical_warmup(
+            indicator_id,
+            parameters,
+        )
+        == expected
+    )
 
 
 def test_warmup_is_parameter_aware() -> None:
@@ -57,3 +60,73 @@ def test_invalid_period_is_rejected() -> None:
 def test_unknown_indicator_is_rejected() -> None:
     with pytest.raises(ValueError, match="Unknown indicator"):
         canonical_warmup("DOES_NOT_EXIST", {"period": 5})
+
+
+@pytest.mark.parametrize(
+    ("output_name", "expected"),
+    [
+        ("macd", 25),
+        ("signal", 33),
+        ("histogram", 33),
+    ],
+)
+def test_macd_warmup_is_output_aware(
+    output_name: str,
+    expected: int,
+) -> None:
+    assert (
+        canonical_warmup(
+            "MACD",
+            {
+                "fastperiod": 12,
+                "slowperiod": 26,
+                "signalperiod": 9,
+            },
+            output_name,
+        )
+        == expected
+    )
+
+
+def test_macd_warmup_uses_parameters() -> None:
+    assert (
+        canonical_warmup(
+            "MACD",
+            {
+                "fastperiod": 5,
+                "slowperiod": 10,
+                "signalperiod": 3,
+            },
+            "macd",
+        )
+        == 9
+    )
+
+    assert (
+        canonical_warmup(
+            "MACD",
+            {
+                "fastperiod": 5,
+                "slowperiod": 10,
+                "signalperiod": 3,
+            },
+            "signal",
+        )
+        == 11
+    )
+
+
+def test_macd_invalid_period_relationship_is_rejected() -> None:
+    with pytest.raises(
+        ValueError,
+        match="fastperiod",
+    ):
+        canonical_warmup(
+            "MACD",
+            {
+                "fastperiod": 26,
+                "slowperiod": 26,
+                "signalperiod": 9,
+            },
+            "macd",
+        )

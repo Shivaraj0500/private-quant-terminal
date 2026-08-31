@@ -146,6 +146,7 @@ def test_catalog_returns_registered_specs() -> None:
         "RSI",
         "ATR",
         "BBANDS",
+        "MACD",
         "SUPERTREND",
         "MOMENTUM",
         "ROC",

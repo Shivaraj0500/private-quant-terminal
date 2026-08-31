@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -12,7 +12,7 @@ from private_quant_terminal.strategy.talib_indicator_provider import (
 
 
 def candles(count: int = 60) -> list[Candle]:
-    start = datetime(2026, 8, 30, 9, 15)
+    start = datetime(2026, 8, 30, 9, 15, tzinfo=UTC)
 
     return [
         Candle(
@@ -39,6 +39,7 @@ def provider() -> TALibIndicatorProvider:
         ("EMA", {"period": 5}),
         ("RSI", {"period": 5}),
         ("ATR", {"period": 5}),
+        ("MACD", {}),
         ("MOMENTUM", {"period": 5}),
         ("ROC", {"period": 5}),
         ("OBV", {}),
@@ -57,12 +58,17 @@ def test_provider_calculates_supported_indicators(
         parameters,
     )
 
+    if name == "MACD":
+        for output_name in ("macd", "signal", "histogram"):
+            series = result.output(output_name)
+            assert len(series) == len(candles())
+            assert series.timestamps == tuple(candle.timestamp for candle in candles())
+        return
+
     series = result.output("value")
 
     assert len(series) == len(candles())
-    assert series.timestamps == tuple(
-        candle.timestamp for candle in candles()
-    )
+    assert series.timestamps == tuple(candle.timestamp for candle in candles())
 
 
 def test_provider_id(

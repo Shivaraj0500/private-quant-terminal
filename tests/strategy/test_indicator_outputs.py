@@ -61,3 +61,12 @@ def test_existing_indicator_expression_remains_backward_compatible() -> None:
         timeframe=None,
         output="value",
     )
+
+
+def test_macd_supports_all_named_outputs() -> None:
+    for output_name in ("macd", "signal", "histogram"):
+        expression = indicator(
+            "MACD",
+            output=output_name,
+        )
+        assert expression.output == output_name

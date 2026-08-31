@@ -26,6 +26,7 @@ class TALibIndicatorProvider(IndicatorProvider):
         "RSI",
         "ATR",
         "BBANDS",
+        "MACD",
         "MOMENTUM",
         "ROC",
         "OBV",
@@ -74,6 +75,50 @@ class TALibIndicatorProvider(IndicatorProvider):
             [candle.volume for candle in candles],
             dtype=float,
         )
+
+        if spec.id == "MACD":
+            fastperiod = self._period_parameter(
+                parameters,
+                "fastperiod",
+                default=12,
+            )
+            slowperiod = self._period_parameter(
+                parameters,
+                "slowperiod",
+                default=26,
+            )
+            signalperiod = self._period_parameter(
+                parameters,
+                "signalperiod",
+                default=9,
+            )
+
+            if fastperiod >= slowperiod:
+                raise ValueError("fastperiod must be less than slowperiod")
+
+            macd, signal, histogram = talib.MACD(
+                close,
+                fastperiod=fastperiod,
+                slowperiod=slowperiod,
+                signalperiod=signalperiod,
+            )
+
+            return IndicatorResult(
+                outputs={
+                    "macd": self._series(
+                        timestamps,
+                        macd,
+                    ),
+                    "signal": self._series(
+                        timestamps,
+                        signal,
+                    ),
+                    "histogram": self._series(
+                        timestamps,
+                        histogram,
+                    ),
+                }
+            )
 
         period = self._period(
             parameters,
@@ -190,6 +235,35 @@ class TALibIndicatorProvider(IndicatorProvider):
             timestamps=timestamps,
             values=tuple(None if not np.isfinite(value) else float(value) for value in values),
         )
+
+    @staticmethod
+    def _period_parameter(
+        parameters: dict[str, float],
+        name: str,
+        *,
+        default: int,
+    ) -> int:
+        value = parameters.get(name, default)
+
+        if isinstance(value, bool):
+            raise ValueError(  # noqa: TRY004
+                f"{name} must be a positive integer"
+            )
+
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{name} must be a positive integer") from exc
+
+        if not numeric.is_integer():
+            raise ValueError(f"{name} must be a positive integer")
+
+        period = int(numeric)
+
+        if period <= 0:
+            raise ValueError(f"{name} must be a positive integer")
+
+        return period
 
     @staticmethod
     def _period(
