@@ -2,6 +2,12 @@ from __future__ import annotations
 
 from types import MappingProxyType
 
+from private_quant_terminal.strategy.builtin_indicator_provider import (
+    BuiltinStrategyIndicatorProvider,
+)
+from private_quant_terminal.strategy.builtin_indicator_specs import (
+    builtin_indicator_specs,
+)
 from private_quant_terminal.strategy.indicator_providers import (
     IndicatorProvider,
 )
@@ -38,38 +44,36 @@ class IndicatorRegistry:
 
         return value.lower()
 
+    @classmethod
+    def with_builtin_provider(cls) -> IndicatorRegistry:
+        """Create the canonical registry with built-in indicator support."""
+
+        registry = cls()
+
+        for spec in builtin_indicator_specs().values():
+            registry.register_spec(spec)
+
+        registry.register_provider(BuiltinStrategyIndicatorProvider())
+
+        return registry
+
     def register_spec(self, spec: IndicatorSpec) -> None:
         indicator_id = self._normalize(spec.id)
 
         if indicator_id in self._specs:
-            raise ValueError(
-                f"Indicator {indicator_id} is already registered."
-            )
+            raise ValueError(f"Indicator {indicator_id} is already registered.")
 
         if indicator_id in self._aliases:
-            raise ValueError(
-                f"Indicator key {indicator_id} is already registered "
-                "as an alias."
-            )
+            raise ValueError(f"Indicator key {indicator_id} is already registered as an alias.")
 
-        aliases = [
-            self._normalize(alias)
-            for alias in spec.aliases
-        ]
+        aliases = [self._normalize(alias) for alias in spec.aliases]
 
         if indicator_id in aliases:
-            raise ValueError(
-                f"Indicator {indicator_id} cannot alias itself."
-            )
+            raise ValueError(f"Indicator {indicator_id} cannot alias itself.")
 
         for alias in aliases:
-            if (
-                alias in self._specs
-                or alias in self._aliases
-            ):
-                raise ValueError(
-                    f"Indicator alias {alias} is already registered."
-                )
+            if alias in self._specs or alias in self._aliases:
+                raise ValueError(f"Indicator alias {alias} is already registered.")
 
         self._specs[indicator_id] = spec
 
@@ -80,15 +84,10 @@ class IndicatorRegistry:
         self,
         provider: IndicatorProvider,
     ) -> None:
-        provider_id = self._provider_key(
-            provider.provider_id
-        )
+        provider_id = self._provider_key(provider.provider_id)
 
         if provider_id in self._providers:
-            raise ValueError(
-                f"Indicator provider {provider.provider_id} "
-                "is already registered."
-            )
+            raise ValueError(f"Indicator provider {provider.provider_id} is already registered.")
 
         self._providers[provider_id] = provider
 
@@ -106,9 +105,7 @@ class IndicatorRegistry:
         try:
             return self._specs[canonical_id]
         except KeyError as exc:
-            raise KeyError(
-                f"Unknown indicator: {indicator_id}"
-            ) from exc
+            raise KeyError(f"Unknown indicator: {indicator_id}") from exc
 
     def resolve_provider(
         self,
@@ -119,49 +116,31 @@ class IndicatorRegistry:
         try:
             return self._providers[key]
         except KeyError as exc:
-            raise KeyError(
-                f"Unknown indicator provider: {provider_id}"
-            ) from exc
+            raise KeyError(f"Unknown indicator provider: {provider_id}") from exc
 
     def resolve_provider_for(
         self,
         spec: IndicatorSpec,
     ) -> IndicatorProvider:
-        provider_key = self._provider_key(
-            spec.provider
-        )
+        provider_key = self._provider_key(spec.provider)
 
         provider = self._providers.get(provider_key)
 
         if provider is None:
-            raise ValueError(
-                f"No provider registered for indicator "
-                f"{spec.id}: {spec.provider}"
-            )
+            raise ValueError(f"No provider registered for indicator {spec.id}: {spec.provider}")
 
-        if (
-            provider.provider_id.strip().lower()
-            != spec.provider.strip().lower()
-        ):
-            raise ValueError(
-                f"No compatible provider registered for "
-                f"indicator {spec.id}"
-            )
+        if provider.provider_id.strip().lower() != spec.provider.strip().lower():
+            raise ValueError(f"No compatible provider registered for indicator {spec.id}")
 
         if not provider.supports(spec):
             raise ValueError(
-                f"Provider {provider.provider_id} does not support "
-                f"indicator {spec.id}"
+                f"Provider {provider.provider_id} does not support indicator {spec.id}"
             )
 
         return provider
 
     def specs(self) -> MappingProxyType:
-        return MappingProxyType(
-            dict(self._specs)
-        )
+        return MappingProxyType(dict(self._specs))
 
     def providers(self) -> MappingProxyType:
-        return MappingProxyType(
-            dict(self._providers)
-        )
+        return MappingProxyType(dict(self._providers))

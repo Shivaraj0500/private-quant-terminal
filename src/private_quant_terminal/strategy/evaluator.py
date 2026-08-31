@@ -3,12 +3,6 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from private_quant_terminal.models import Candle
-from private_quant_terminal.strategy.builtin_indicator_provider import (
-    BuiltinStrategyIndicatorProvider,
-)
-from private_quant_terminal.strategy.builtin_indicator_specs import (
-    builtin_indicator_specs,
-)
 from private_quant_terminal.strategy.canonical_indicator_engine import (
     CanonicalIndicatorEngine,
 )
@@ -54,14 +48,7 @@ class ExpressionEvaluator:
 
     @staticmethod
     def _default_indicator_engine() -> CanonicalIndicatorEngine:
-        registry = IndicatorRegistry()
-
-        for spec in builtin_indicator_specs().values():
-            registry.register_spec(spec)
-
-        registry.register_provider(BuiltinStrategyIndicatorProvider())
-
-        return CanonicalIndicatorEngine(registry)
+        return CanonicalIndicatorEngine(IndicatorRegistry.with_builtin_provider())
 
     def evaluate(
         self,
