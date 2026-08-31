@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -12,6 +12,9 @@ from private_quant_terminal.strategy.builtin_indicator_specs import (
 from private_quant_terminal.strategy.canonical_indicator_engine import (
     CanonicalIndicatorEngine,
 )
+from private_quant_terminal.strategy.expressions import (
+    indicator,
+)
 from private_quant_terminal.strategy.indicator_registry import (
     IndicatorRegistry,
 )
@@ -19,13 +22,10 @@ from private_quant_terminal.strategy.indicator_specs import (
     IndicatorOutputSpec,
     IndicatorSpec,
 )
-from private_quant_terminal.strategy.expressions import (
-    indicator,
-)
 
 
 def candles(count: int = 30) -> list[Candle]:
-    start = datetime(2026, 8, 30, 9, 15)
+    start = datetime(2026, 8, 30, 9, 15, tzinfo=UTC)
 
     return [
         Candle(
@@ -46,9 +46,7 @@ def engine() -> CanonicalIndicatorEngine:
     for spec in builtin_indicator_specs().values():
         registry.register_spec(spec)
 
-    registry.register_provider(
-        BuiltinStrategyIndicatorProvider()
-    )
+    registry.register_provider(BuiltinStrategyIndicatorProvider())
 
     return CanonicalIndicatorEngine(registry)
 
@@ -101,12 +99,17 @@ def test_builtin_specs_have_declared_output_names() -> None:
     specs = builtin_indicator_specs()
 
     for spec in specs.values():
-        output_names = {
-            output.name.lower()
-            for output in spec.outputs
-        }
+        output_names = {output.name.lower() for output in spec.outputs}
 
-        assert "value" in output_names
+        assert output_names
+
+    assert {output.name.lower() for output in specs["SMA"].outputs} == {"value"}
+
+    assert {output.name.lower() for output in specs["BBANDS"].outputs} == {
+        "upper",
+        "middle",
+        "lower",
+    }
 
 
 def test_indicator_output_spec_normalizes_name() -> None:

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -15,17 +15,49 @@ from private_quant_terminal.strategy.talib_indicator_provider import (
 
 
 def candles(count: int = 60) -> list[Candle]:
-    start = datetime(2026, 8, 30, 9, 15)
+    start = datetime(2026, 8, 30, 9, 15, tzinfo=UTC)
 
     closes = [
-        100.0, 101.2, 99.8, 102.5, 101.7,
-        103.4, 104.1, 102.8, 105.2, 106.0,
-        104.9, 107.3, 108.1, 106.6, 109.4,
-        110.2, 108.7, 111.5, 112.1, 110.8,
-        113.6, 114.4, 112.9, 115.7, 116.3,
-        114.8, 117.1, 118.0, 116.5, 119.2,
-        120.1, 118.7, 121.4, 122.0, 120.6,
-        123.3, 124.1, 122.8, 125.5, 126.2,
+        100.0,
+        101.2,
+        99.8,
+        102.5,
+        101.7,
+        103.4,
+        104.1,
+        102.8,
+        105.2,
+        106.0,
+        104.9,
+        107.3,
+        108.1,
+        106.6,
+        109.4,
+        110.2,
+        108.7,
+        111.5,
+        112.1,
+        110.8,
+        113.6,
+        114.4,
+        112.9,
+        115.7,
+        116.3,
+        114.8,
+        117.1,
+        118.0,
+        116.5,
+        119.2,
+        120.1,
+        118.7,
+        121.4,
+        122.0,
+        120.6,
+        123.3,
+        124.1,
+        122.8,
+        125.5,
+        126.2,
     ]
 
     values = (closes * ((count + len(closes) - 1) // len(closes)))[:count]
@@ -125,16 +157,10 @@ def test_ema_provider_warmup_is_distinct_from_canonical_warmup(
     ).output("value")
 
     # TA-Lib has provider-native warmup.
-    assert all(
-        value is None
-        for value in talib_series.values[:4]
-    )
+    assert all(value is None for value in talib_series.values[:4])
 
     # The built-in provider may emit raw values earlier.
-    assert all(
-        value is not None
-        for value in builtin_series.values[:4]
-    )
+    assert all(value is not None for value in builtin_series.values[:4])
 
     # Provider-native numerical values are not required to match.
     assert builtin_series.values[4] != pytest.approx(
@@ -207,7 +233,10 @@ def test_builtin_provider_supports_all_canonical_indicators(
     builtin,
 ):
     for spec in specs.values():
-        assert builtin.supports(spec) is True
+        if spec.provider == builtin.provider_id:
+            assert builtin.supports(spec) is True
+        else:
+            assert builtin.supports(spec) is False
 
 
 def test_talib_provider_supports_only_declared_talib_indicators(
@@ -219,12 +248,11 @@ def test_talib_provider_supports_only_declared_talib_indicators(
         "EMA",
         "RSI",
         "ATR",
+        "BBANDS",
         "MOMENTUM",
         "ROC",
         "OBV",
     }
 
     for indicator_id, spec in specs.items():
-        assert talib.supports(spec) is (
-            indicator_id in talib_supported
-        )
+        assert talib.supports(spec) is (indicator_id in talib_supported)

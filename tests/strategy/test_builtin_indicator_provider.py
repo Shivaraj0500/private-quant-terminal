@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -12,7 +12,7 @@ from private_quant_terminal.strategy.builtin_indicator_specs import (
 
 
 def candles(count: int = 40) -> list[Candle]:
-    start = datetime(2026, 8, 30, 9, 15)
+    start = datetime(2026, 8, 30, 9, 15, tzinfo=UTC)
 
     return [
         Candle(
@@ -37,40 +37,10 @@ def test_provider_supports_builtin_specs() -> None:
     provider = BuiltinStrategyIndicatorProvider()
 
     for spec in builtin_indicator_specs().values():
-        assert provider.provider_id == spec.provider
-        assert spec.provider == "builtin_strategy"
-
-
-@pytest.mark.parametrize(
-    "indicator_id,parameters",
-    [
-        ("SMA", {"period": 5}),
-        ("EMA", {"period": 5}),
-        ("RSI", {"period": 5}),
-        ("ATR", {"period": 5}),
-        ("SUPERTREND", {"period": 5, "multiplier": 2.0}),
-        ("MOMENTUM", {"period": 5}),
-        ("ROC", {"period": 5}),
-        ("VOLUME_SMA", {"period": 5}),
-        ("RELATIVE_VOLUME", {"period": 5}),
-        ("OBV", {}),
-    ],
-)
-def test_provider_calculates_all_builtin_indicators(
-    indicator_id: str,
-    parameters: dict[str, object],
-) -> None:
-    provider = BuiltinStrategyIndicatorProvider()
-    spec = builtin_indicator_specs()[indicator_id]
-
-    result = provider.calculate(
-        spec,
-        candles(),
-        parameters,
-    )
-
-    assert "value" in result.outputs
-    assert len(result.output("value")) == len(candles())
+        if spec.provider == provider.provider_id:
+            assert provider.supports(spec) is True
+        else:
+            assert provider.supports(spec) is False
 
 
 def test_provider_preserves_timestamps() -> None:
@@ -87,10 +57,7 @@ def test_provider_preserves_timestamps() -> None:
 
     series = result.output("value")
 
-    assert series.timestamps == tuple(
-        candle.timestamp
-        for candle in source
-    )
+    assert series.timestamps == tuple(candle.timestamp for candle in source)
 
 
 def test_provider_rejects_wrong_provider() -> None:

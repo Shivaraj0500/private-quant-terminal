@@ -20,9 +20,7 @@ def registry() -> IndicatorRegistry:
     for spec in builtin_indicator_specs().values():
         result.register_spec(spec)
 
-    result.register_provider(
-        BuiltinStrategyIndicatorProvider()
-    )
+    result.register_provider(BuiltinStrategyIndicatorProvider())
 
     return result
 
@@ -68,9 +66,7 @@ def test_provider_registration() -> None:
 
     result.register_provider(provider)
 
-    assert result.resolve_provider(
-        "builtin_strategy"
-    ) is provider
+    assert result.resolve_provider("builtin_strategy") is provider
 
 
 def test_unknown_provider_fails() -> None:
@@ -83,9 +79,7 @@ def test_unknown_provider_fails() -> None:
 def test_resolve_provider_for_indicator() -> None:
     result = registry()
 
-    provider = result.resolve_provider_for(
-        result.resolve_spec("SMA")
-    )
+    provider = result.resolve_provider_for(result.resolve_spec("SMA"))
 
     assert provider.provider_id == "builtin_strategy"
 
@@ -93,17 +87,13 @@ def test_resolve_provider_for_indicator() -> None:
 def test_missing_indicator_provider_fails() -> None:
     result = IndicatorRegistry()
 
-    result.register_spec(
-        builtin_indicator_specs()["SMA"]
-    )
+    result.register_spec(builtin_indicator_specs()["SMA"])
 
     with pytest.raises(
         ValueError,
         match="No provider registered",
     ):
-        result.resolve_provider_for(
-            result.resolve_spec("SMA")
-        )
+        result.resolve_provider_for(result.resolve_spec("SMA"))
 
 
 def test_duplicate_provider_id_fails() -> None:
@@ -121,9 +111,7 @@ def test_duplicate_provider_id_fails() -> None:
 def test_missing_required_provider_is_rejected() -> None:
     result = IndicatorRegistry()
 
-    result.register_spec(
-        builtin_indicator_specs()["SMA"]
-    )
+    result.register_spec(builtin_indicator_specs()["SMA"])
 
     class WrongProvider(IndicatorProvider):
         @property
@@ -136,9 +124,7 @@ def test_missing_required_provider_is_rejected() -> None:
             candles,
             parameters,
         ):
-            raise AssertionError(
-                "Provider should not be called"
-            )
+            raise AssertionError("Provider should not be called")
 
     result.register_provider(WrongProvider())
 
@@ -146,9 +132,7 @@ def test_missing_required_provider_is_rejected() -> None:
         ValueError,
         match="No provider registered",
     ):
-        result.resolve_provider_for(
-            result.resolve_spec("SMA")
-        )
+        result.resolve_provider_for(result.resolve_spec("SMA"))
 
 
 def test_catalog_returns_registered_specs() -> None:
@@ -161,6 +145,7 @@ def test_catalog_returns_registered_specs() -> None:
         "EMA",
         "RSI",
         "ATR",
+        "BBANDS",
         "SUPERTREND",
         "MOMENTUM",
         "ROC",

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from typing import ClassVar
 
 import numpy as np
 import talib
@@ -19,11 +20,12 @@ from private_quant_terminal.strategy.series import TimeSeries
 class TALibIndicatorProvider(IndicatorProvider):
     """TA-Lib-backed provider for explicitly approved indicators."""
 
-    _SUPPORTED = {
+    _SUPPORTED: ClassVar[set[str]] = {
         "SMA",
         "EMA",
         "RSI",
         "ATR",
+        "BBANDS",
         "MOMENTUM",
         "ROC",
         "OBV",
@@ -46,20 +48,12 @@ class TALibIndicatorProvider(IndicatorProvider):
         parameters: dict[str, float],
     ) -> IndicatorResult:
         if not candles:
-            raise ValueError(
-                "candles cannot be empty"
-            )
+            raise ValueError("candles cannot be empty")
 
         if spec.id not in self._SUPPORTED:
-            raise ValueError(
-                f"TA-Lib provider does not support "
-                f"{spec.id}"
-            )
+            raise ValueError(f"TA-Lib provider does not support {spec.id}")
 
-        timestamps = tuple(
-            candle.timestamp
-            for candle in candles
-        )
+        timestamps = tuple(candle.timestamp for candle in candles)
 
         close = np.asarray(
             [candle.close for candle in candles],
@@ -90,6 +84,49 @@ class TALibIndicatorProvider(IndicatorProvider):
             values = talib.SMA(
                 close,
                 timeperiod=period,
+            )
+
+        elif spec.id == "BBANDS":
+            deviation = parameters.get(
+                "deviation",
+                2.0,
+            )
+
+            if not isinstance(
+                deviation,
+                (int, float),
+            ) or isinstance(
+                deviation,
+                bool,
+            ):
+                raise ValueError("deviation must be numeric")
+
+            if float(deviation) <= 0:
+                raise ValueError("deviation must be greater than zero")
+
+            upper, middle, lower = talib.BBANDS(
+                close,
+                timeperiod=period,
+                nbdevup=float(deviation),
+                nbdevdn=float(deviation),
+                matype=0,
+            )
+
+            return IndicatorResult(
+                outputs={
+                    "upper": self._series(
+                        timestamps,
+                        upper,
+                    ),
+                    "middle": self._series(
+                        timestamps,
+                        middle,
+                    ),
+                    "lower": self._series(
+                        timestamps,
+                        lower,
+                    ),
+                }
             )
 
         elif spec.id == "EMA":
@@ -131,23 +168,27 @@ class TALibIndicatorProvider(IndicatorProvider):
             )
 
         else:
-            raise ValueError(
-                f"TA-Lib provider does not support "
-                f"{spec.id}"
-            )
+            raise ValueError(f"TA-Lib provider does not support {spec.id}")
 
         return IndicatorResult(
             outputs={
                 "value": TimeSeries(
                     timestamps=timestamps,
                     values=tuple(
-                        None
-                        if not np.isfinite(value)
-                        else float(value)
-                        for value in values
+                        None if not np.isfinite(value) else float(value) for value in values
                     ),
                 )
             }
+        )
+
+    @staticmethod
+    def _series(
+        timestamps,
+        values,
+    ) -> TimeSeries:
+        return TimeSeries(
+            timestamps=timestamps,
+            values=tuple(None if not np.isfinite(value) else float(value) for value in values),
         )
 
     @staticmethod
@@ -158,24 +199,18 @@ class TALibIndicatorProvider(IndicatorProvider):
     ) -> int:
         if "period" not in parameters:
             if required:
-                raise ValueError(
-                    "period parameter is required"
-                )
+                raise ValueError("period parameter is required")
 
             return 0
 
         value = parameters["period"]
 
         if not float(value).is_integer():
-            raise ValueError(
-                "period must be an integer"
-            )
+            raise ValueError("period must be an integer")
 
         period = int(value)
 
         if period <= 0:
-            raise ValueError(
-                "period must be greater than zero"
-            )
+            raise ValueError("period must be greater than zero")
 
         return period

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-
 _PERIOD_MINUS_ONE = {
+    "BBANDS",
     "SMA",
     "EMA",
     "ATR",
@@ -57,6 +57,4 @@ def canonical_warmup(
     if normalized_id in _PERIOD:
         return _period(parameters)
 
-    raise ValueError(
-        f"Unknown indicator: {normalized_id}"
-    )
+    raise ValueError(f"Unknown indicator: {normalized_id}")

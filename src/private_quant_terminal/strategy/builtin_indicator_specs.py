@@ -39,9 +39,7 @@ def builtin_indicator_specs() -> dict[str, IndicatorSpec]:
             version="1.0.0",
             category="TREND",
             description="Simple moving average of the selected price series.",
-            parameters=(
-                _period(14),
-            ),
+            parameters=(_period(14),),
             outputs=_single_output(),
             warmup=0,
             provider="builtin_strategy",
@@ -53,9 +51,7 @@ def builtin_indicator_specs() -> dict[str, IndicatorSpec]:
             version="1.0.0",
             category="TREND",
             description="Exponential moving average of the selected price series.",
-            parameters=(
-                _period(14),
-            ),
+            parameters=(_period(14),),
             outputs=_single_output(),
             warmup=0,
             provider="builtin_strategy",
@@ -67,9 +63,7 @@ def builtin_indicator_specs() -> dict[str, IndicatorSpec]:
             version="1.0.0",
             category="MOMENTUM",
             description="Relative Strength Index using the strategy engine implementation.",
-            parameters=(
-                _period(14),
-            ),
+            parameters=(_period(14),),
             outputs=_single_output(),
             warmup=0,
             provider="builtin_strategy",
@@ -81,12 +75,44 @@ def builtin_indicator_specs() -> dict[str, IndicatorSpec]:
             version="1.0.0",
             category="VOLATILITY",
             description="Historical Average True Range used by the strategy engine.",
-            parameters=(
-                _period(14),
-            ),
+            parameters=(_period(14),),
             outputs=_single_output(),
             warmup=0,
             provider="builtin_strategy",
+            deterministic=True,
+        ),
+        IndicatorSpec(
+            id="BBANDS",
+            name="Bollinger Bands",
+            version="1.0.0",
+            category="VOLATILITY",
+            description="Bollinger Bands calculated from the selected price series.",
+            parameters=(
+                _period(20),
+                IndicatorParameterSpec(
+                    name="deviation",
+                    parameter_type=IndicatorParameterType.FLOAT,
+                    required=False,
+                    default=2.0,
+                    minimum=0.000001,
+                ),
+            ),
+            outputs=(
+                IndicatorOutputSpec(
+                    name="upper",
+                    description="Upper Bollinger Band.",
+                ),
+                IndicatorOutputSpec(
+                    name="middle",
+                    description="Middle Bollinger Band.",
+                ),
+                IndicatorOutputSpec(
+                    name="lower",
+                    description="Lower Bollinger Band.",
+                ),
+            ),
+            warmup=0,
+            provider="talib",
             deterministic=True,
         ),
         IndicatorSpec(
@@ -116,9 +142,7 @@ def builtin_indicator_specs() -> dict[str, IndicatorSpec]:
             version="1.0.0",
             category="MOMENTUM",
             description="Difference between the latest value and the value N periods ago.",
-            parameters=(
-                _period(1),
-            ),
+            parameters=(_period(1),),
             outputs=_single_output(),
             warmup=0,
             provider="builtin_strategy",
@@ -130,9 +154,7 @@ def builtin_indicator_specs() -> dict[str, IndicatorSpec]:
             version="1.0.0",
             category="MOMENTUM",
             description="Percentage rate of change over the selected period.",
-            parameters=(
-                _period(1),
-            ),
+            parameters=(_period(1),),
             outputs=_single_output(),
             warmup=0,
             provider="builtin_strategy",
@@ -144,9 +166,7 @@ def builtin_indicator_specs() -> dict[str, IndicatorSpec]:
             version="1.0.0",
             category="VOLUME",
             description="Simple moving average of volume.",
-            parameters=(
-                _period(20),
-            ),
+            parameters=(_period(20),),
             outputs=_single_output(),
             warmup=0,
             provider="builtin_strategy",
@@ -158,9 +178,7 @@ def builtin_indicator_specs() -> dict[str, IndicatorSpec]:
             version="1.0.0",
             category="VOLUME",
             description="Current volume relative to the average previous volume.",
-            parameters=(
-                _period(20),
-            ),
+            parameters=(_period(20),),
             outputs=_single_output(),
             warmup=0,
             provider="builtin_strategy",
@@ -180,7 +198,4 @@ def builtin_indicator_specs() -> dict[str, IndicatorSpec]:
         ),
     )
 
-    return {
-        spec.id: spec
-        for spec in specs
-    }
+    return {spec.id: spec for spec in specs}

@@ -1,8 +1,8 @@
-from private_quant_terminal.strategy.indicator_specs import (
-    IndicatorParameterType,
-)
 from private_quant_terminal.strategy.builtin_indicator_specs import (
     builtin_indicator_specs,
+)
+from private_quant_terminal.strategy.indicator_specs import (
+    IndicatorParameterType,
 )
 
 
@@ -14,6 +14,7 @@ def test_builtin_catalog_contains_core_indicators() -> None:
         "EMA",
         "RSI",
         "ATR",
+        "BBANDS",
         "SUPERTREND",
         "MOMENTUM",
         "ROC",
@@ -93,16 +94,16 @@ def test_volume_specs() -> None:
 def test_all_builtin_specs_are_deterministic() -> None:
     specs = builtin_indicator_specs()
 
-    assert all(
-        spec.deterministic
-        for spec in specs.values()
-    )
+    assert all(spec.deterministic for spec in specs.values())
 
 
-def test_all_builtin_specs_have_value_output() -> None:
+def test_all_builtin_specs_have_declared_outputs() -> None:
     specs = builtin_indicator_specs()
 
-    assert all(
-        spec.outputs[0].name == "value"
-        for spec in specs.values()
+    assert all(spec.outputs for spec in specs.values())
+
+    assert tuple(output.name for output in specs["BBANDS"].outputs) == (
+        "upper",
+        "middle",
+        "lower",
     )
