@@ -909,3 +909,97 @@ def test_build_runtime_context_counts_multiple_open_position_groups() -> None:
     assert context.position.quantity == 2.0
     assert context.position.entry_timestamp == timestamp
     assert context.is_position_open is True
+
+
+def test_build_runtime_context_derives_position_after_roll() -> None:
+    from datetime import UTC, datetime
+
+    from private_quant_terminal.strategy.actions import RollAction
+    from private_quant_terminal.strategy.variables import (
+        MarketContext,
+        SessionContext,
+    )
+
+    timestamp = datetime(2026, 8, 30, 10, 0, tzinfo=UTC)
+
+    orchestrator = ExecutionOrchestrator()
+    orchestrator.start()
+
+    original = option_group("roll-original")
+    replacement = option_group("roll-replacement")
+
+    orchestrator.process(
+        (EnterAction(position=original),),
+        context=SessionContext(current_time=timestamp),
+    )
+
+    orchestrator.process(
+        (
+            RollAction(
+                group_id="roll-original",
+                replacement=replacement,
+            ),
+        ),
+        context=SessionContext(current_time=timestamp),
+    )
+
+    context = orchestrator.build_runtime_context(
+        market=MarketContext(
+            timestamp=timestamp,
+            open=100.0,
+            high=105.0,
+            low=99.0,
+            close=103.0,
+        ),
+    )
+
+    assert context.position.quantity == 1.0
+    assert context.position.entry_timestamp == timestamp
+    assert context.is_position_open is True
+
+
+def test_build_runtime_context_counts_hedge_as_open_position_group() -> None:
+    from datetime import UTC, datetime
+
+    from private_quant_terminal.strategy.actions import HedgeAction
+    from private_quant_terminal.strategy.variables import (
+        MarketContext,
+        SessionContext,
+    )
+
+    timestamp = datetime(2026, 8, 30, 10, 0, tzinfo=UTC)
+
+    orchestrator = ExecutionOrchestrator()
+    orchestrator.start()
+
+    primary = option_group("hedge-primary")
+    hedge = option_group("hedge-position")
+
+    orchestrator.process(
+        (EnterAction(position=primary),),
+        context=SessionContext(current_time=timestamp),
+    )
+
+    orchestrator.process(
+        (
+            HedgeAction(
+                group_id="hedge-primary",
+                hedge=hedge,
+            ),
+        ),
+        context=SessionContext(current_time=timestamp),
+    )
+
+    context = orchestrator.build_runtime_context(
+        market=MarketContext(
+            timestamp=timestamp,
+            open=100.0,
+            high=105.0,
+            low=99.0,
+            close=103.0,
+        ),
+    )
+
+    assert context.position.quantity == 2.0
+    assert context.position.entry_timestamp == timestamp
+    assert context.is_position_open is True
