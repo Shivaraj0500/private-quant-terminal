@@ -3,7 +3,6 @@ from private_quant_terminal.strategy.conditions import (
     ComparisonOperator,
     CrossingCondition,
     CrossingOperator,
-    LogicalCondition,
     LogicalOperator,
     all_of,
     any_of,

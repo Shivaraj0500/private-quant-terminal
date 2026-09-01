@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -18,7 +18,7 @@ from private_quant_terminal.strategy.series import TimeSeries
 
 def test_indicator_result_exposes_named_outputs() -> None:
     series = TimeSeries(
-        timestamps=(datetime(2026, 8, 30, 9, 15),),
+        timestamps=(datetime(2026, 8, 30, 9, 15, tzinfo=UTC),),
         values=(100.0,),
     )
 
@@ -29,7 +29,7 @@ def test_indicator_result_exposes_named_outputs() -> None:
 
 def test_unknown_output_is_rejected() -> None:
     series = TimeSeries(
-        timestamps=(datetime(2026, 8, 30, 9, 15),),
+        timestamps=(datetime(2026, 8, 30, 9, 15, tzinfo=UTC),),
         values=(100.0,),
     )
 
@@ -97,7 +97,7 @@ def test_provider_contract_can_be_implemented() -> None:
 
     candles = [
         Candle(
-            timestamp=datetime(2026, 8, 30, 9, 15)
+            timestamp=datetime(2026, 8, 30, 9, 15, tzinfo=UTC)
             + timedelta(minutes=index),
             open=100 + index,
             high=101 + index,

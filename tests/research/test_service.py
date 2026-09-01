@@ -10,9 +10,9 @@ from private_quant_terminal.models import Candle
 from private_quant_terminal.persistence import Database
 from private_quant_terminal.research import (
     ResearchAnalysisResult,
-    ResearchRunStatus,
     ResearchParameters,
     ResearchRunService,
+    ResearchRunStatus,
 )
 from private_quant_terminal.research.repository import ResearchRunRepository
 from private_quant_terminal.strategy import (

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pytest
 
@@ -15,7 +15,7 @@ from private_quant_terminal.strategy.variables import (
 
 def market() -> MarketContext:
     return MarketContext(
-        timestamp=datetime(2026, 8, 30, 10, 0),
+        timestamp=datetime(2026, 8, 30, 10, 0, tzinfo=UTC),
         open=100.0,
         high=105.0,
         low=99.0,
@@ -63,7 +63,7 @@ def test_market_context_rejects_invalid_range() -> None:
         match="high cannot be below low",
     ):
         MarketContext(
-            timestamp=datetime(2026, 8, 30, 10, 0),
+            timestamp=datetime(2026, 8, 30, 10, 0, tzinfo=UTC),
             open=100.0,
             high=90.0,
             low=95.0,
@@ -118,7 +118,7 @@ def test_runtime_context_resolves_position_values() -> None:
 
 
 def test_runtime_context_resolves_session_values() -> None:
-    current_time = datetime(2026, 8, 30, 14, 0)
+    current_time = datetime(2026, 8, 30, 14, 0, tzinfo=UTC)
 
     context = StrategyRuntimeContext(
         market=market(),

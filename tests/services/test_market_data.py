@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from private_quant_terminal.data.repository import CandleRepository
 from private_quant_terminal.models.candle import Candle
@@ -26,7 +26,7 @@ def make_tick(
     return Tick(
         symbol=symbol,
         exchange="NSE",
-        timestamp=datetime.now(),
+        timestamp=datetime.now(UTC),
         last_price=price,
         volume=100,
     )
@@ -36,7 +36,7 @@ def make_candle(
     minutes: int,
     close: float,
 ) -> Candle:
-    timestamp = datetime.now() + timedelta(minutes=minutes)
+    timestamp = datetime.now(UTC) + timedelta(minutes=minutes)
 
     return Candle(
         timestamp=timestamp,
@@ -286,7 +286,7 @@ def test_get_latest_quote_returns_quote_from_provider() -> None:
     quote = Quote(
         symbol="NIFTY",
         exchange="NSE",
-        timestamp=datetime.now(),
+        timestamp=datetime.now(UTC),
         last_price=25000.0,
     )
 

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -9,7 +9,7 @@ from private_quant_terminal.strategy.series import (
 
 
 def timestamps(count: int) -> list[datetime]:
-    start = datetime(2026, 8, 30, 9, 15)
+    start = datetime(2026, 8, 30, 9, 15, tzinfo=UTC)
 
     return [
         start + timedelta(minutes=index)

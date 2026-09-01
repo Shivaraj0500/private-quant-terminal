@@ -3,11 +3,11 @@ from private_quant_terminal.research.evaluator import (
     evaluate_strategy,
 )
 from private_quant_terminal.research.execution import (
+    ResearchEquityPoint,
     ResearchExecutionEvent,
     ResearchExecutionEventType,
     ResearchExecutionRequest,
     ResearchExecutionResult,
-    ResearchEquityPoint,
     ResearchTrade,
 )
 from private_quant_terminal.research.executor import (
@@ -35,11 +35,11 @@ from private_quant_terminal.research.service import (
 
 __all__ = [
     "ResearchAnalysisResult",
+    "ResearchEquityPoint",
     "ResearchExecutionEvent",
     "ResearchExecutionEventType",
     "ResearchExecutionRequest",
     "ResearchExecutionResult",
-    "ResearchEquityPoint",
     "ResearchExecutor",
     "ResearchParameters",
     "ResearchPerformanceAnalyzer",

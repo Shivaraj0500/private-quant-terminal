@@ -1,5 +1,5 @@
 from dataclasses import FrozenInstanceError
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pytest
 
@@ -8,7 +8,7 @@ from private_quant_terminal.models.quote import Quote
 
 class TestQuote:
     def test_creates_quote_with_required_fields(self) -> None:
-        timestamp = datetime(2026, 8, 24, 9, 15)
+        timestamp = datetime(2026, 8, 24, 9, 15, tzinfo=UTC)
 
         quote = Quote(
             symbol="NIFTY",
@@ -26,7 +26,7 @@ class TestQuote:
         quote = Quote(
             symbol="NIFTY",
             exchange="NSE",
-            timestamp=datetime(2026, 8, 24, 9, 15),
+            timestamp=datetime(2026, 8, 24, 9, 15, tzinfo=UTC),
             last_price=25000.0,
         )
 
@@ -37,7 +37,7 @@ class TestQuote:
         assert quote.volume is None
 
     def test_creates_quote_with_all_fields(self) -> None:
-        timestamp = datetime(2026, 8, 24, 9, 15)
+        timestamp = datetime(2026, 8, 24, 9, 15, tzinfo=UTC)
 
         quote = Quote(
             symbol="RELIANCE",
@@ -65,7 +65,7 @@ class TestQuote:
         quote = Quote(
             symbol="TEST",
             exchange="NSE",
-            timestamp=datetime(2026, 8, 24, 9, 15),
+            timestamp=datetime(2026, 8, 24, 9, 15, tzinfo=UTC),
             last_price=0.0,
             open=0.0,
             high=0.0,
@@ -85,7 +85,7 @@ class TestQuote:
         quote = Quote(
             symbol="TEST",
             exchange="NSE",
-            timestamp=datetime(2026, 8, 24, 9, 15),
+            timestamp=datetime(2026, 8, 24, 9, 15, tzinfo=UTC),
             last_price=-100.0,
             open=-90.0,
             high=-80.0,
@@ -101,7 +101,7 @@ class TestQuote:
         quote = Quote(
             symbol="NIFTY",
             exchange="NSE",
-            timestamp=datetime(2026, 8, 24, 9, 15),
+            timestamp=datetime(2026, 8, 24, 9, 15, tzinfo=UTC),
             last_price=25000.0,
         )
 

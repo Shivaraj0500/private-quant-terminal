@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from itertools import pairwise
+
 from collections.abc import Sequence
 
 
@@ -13,7 +15,7 @@ def simple_returns(prices: Sequence[float]) -> tuple[float, ...]:
 
     return tuple(
         (current_price - previous_price) / previous_price
-        for previous_price, current_price in zip(prices, prices[1:])
+        for previous_price, current_price in pairwise(prices)
     )
 
 

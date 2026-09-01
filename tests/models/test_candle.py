@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pytest
 
@@ -7,7 +7,7 @@ from private_quant_terminal.models.candle import Candle
 
 class TestCandle:
     def test_creates_valid_candle(self) -> None:
-        timestamp = datetime(2026, 8, 24, 9, 15)
+        timestamp = datetime(2026, 8, 24, 9, 15, tzinfo=UTC)
 
         candle = Candle(
             timestamp=timestamp,
@@ -27,7 +27,7 @@ class TestCandle:
 
     def test_uses_default_zero_volume(self) -> None:
         candle = Candle(
-            timestamp=datetime(2026, 8, 24, 9, 15),
+            timestamp=datetime(2026, 8, 24, 9, 15, tzinfo=UTC),
             open=100.0,
             high=110.0,
             low=95.0,
@@ -38,7 +38,7 @@ class TestCandle:
 
     def test_allows_boundary_values(self) -> None:
         candle = Candle(
-            timestamp=datetime(2026, 8, 24, 9, 15),
+            timestamp=datetime(2026, 8, 24, 9, 15, tzinfo=UTC),
             open=95.0,
             high=110.0,
             low=95.0,
@@ -54,7 +54,7 @@ class TestCandle:
             match="high cannot be lower than low",
         ):
             Candle(
-                timestamp=datetime(2026, 8, 24, 9, 15),
+                timestamp=datetime(2026, 8, 24, 9, 15, tzinfo=UTC),
                 open=100.0,
                 high=90.0,
                 low=95.0,
@@ -67,7 +67,7 @@ class TestCandle:
             match="open must be between low and high",
         ):
             Candle(
-                timestamp=datetime(2026, 8, 24, 9, 15),
+                timestamp=datetime(2026, 8, 24, 9, 15, tzinfo=UTC),
                 open=90.0,
                 high=110.0,
                 low=95.0,
@@ -80,7 +80,7 @@ class TestCandle:
             match="open must be between low and high",
         ):
             Candle(
-                timestamp=datetime(2026, 8, 24, 9, 15),
+                timestamp=datetime(2026, 8, 24, 9, 15, tzinfo=UTC),
                 open=115.0,
                 high=110.0,
                 low=95.0,
@@ -93,7 +93,7 @@ class TestCandle:
             match="close must be between low and high",
         ):
             Candle(
-                timestamp=datetime(2026, 8, 24, 9, 15),
+                timestamp=datetime(2026, 8, 24, 9, 15, tzinfo=UTC),
                 open=100.0,
                 high=110.0,
                 low=95.0,
@@ -106,7 +106,7 @@ class TestCandle:
             match="close must be between low and high",
         ):
             Candle(
-                timestamp=datetime(2026, 8, 24, 9, 15),
+                timestamp=datetime(2026, 8, 24, 9, 15, tzinfo=UTC),
                 open=100.0,
                 high=110.0,
                 low=95.0,
@@ -119,7 +119,7 @@ class TestCandle:
             match="volume cannot be negative",
         ):
             Candle(
-                timestamp=datetime(2026, 8, 24, 9, 15),
+                timestamp=datetime(2026, 8, 24, 9, 15, tzinfo=UTC),
                 open=100.0,
                 high=110.0,
                 low=95.0,
@@ -129,7 +129,7 @@ class TestCandle:
 
     def test_candle_is_immutable(self) -> None:
         candle = Candle(
-            timestamp=datetime(2026, 8, 24, 9, 15),
+            timestamp=datetime(2026, 8, 24, 9, 15, tzinfo=UTC),
             open=100.0,
             high=110.0,
             low=95.0,

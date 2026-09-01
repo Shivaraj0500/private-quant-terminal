@@ -83,7 +83,7 @@ def test_provider_rejects_boolean_parameter() -> None:
     provider = BuiltinStrategyIndicatorProvider()
     spec = builtin_indicator_specs()["SMA"]
 
-    with pytest.raises(ValueError, match="cannot be boolean"):
+    with pytest.raises(TypeError, match="cannot be boolean"):
         provider.calculate(
             spec,
             candles(),
@@ -95,7 +95,7 @@ def test_provider_rejects_non_numeric_parameter() -> None:
     provider = BuiltinStrategyIndicatorProvider()
     spec = builtin_indicator_specs()["SMA"]
 
-    with pytest.raises(ValueError, match="must be numeric"):
+    with pytest.raises(TypeError, match="must be numeric"):
         provider.calculate(
             spec,
             candles(),

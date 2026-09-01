@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -14,11 +14,11 @@ from private_quant_terminal.strategy.evaluator import (
     ExpressionEvaluator,
 )
 from private_quant_terminal.strategy.expressions import (
+    PriceField,
     constant,
     indicator,
     price,
     variable,
-    PriceField,
 )
 from private_quant_terminal.strategy.variables import (
     MarketContext,
@@ -30,7 +30,7 @@ from private_quant_terminal.strategy.variables import (
 
 
 def candles(closes: list[float]) -> list[Candle]:
-    start = datetime(2026, 8, 30, 9, 15)
+    start = datetime(2026, 8, 30, 9, 15, tzinfo=UTC)
 
     result: list[Candle] = []
 

@@ -3,11 +3,11 @@ from private_quant_terminal.research.evaluator import (
     evaluate_strategy,
 )
 from private_quant_terminal.research.execution import (
+    ResearchEquityPoint,
     ResearchExecutionEvent,
     ResearchExecutionEventType,
     ResearchExecutionRequest,
     ResearchExecutionResult,
-    ResearchEquityPoint,
     ResearchTrade,
 )
 from private_quant_terminal.research.indicators import calculate_indicators

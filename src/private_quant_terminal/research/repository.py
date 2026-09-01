@@ -1,12 +1,12 @@
 import json
 from dataclasses import asdict, is_dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 
 from private_quant_terminal.persistence import Database
 from private_quant_terminal.research.execution import (
+    ResearchEquityPoint,
     ResearchExecutionEvent,
     ResearchExecutionEventType,
-    ResearchEquityPoint,
     ResearchExecutionResult,
     ResearchTrade,
 )
@@ -208,7 +208,7 @@ class ResearchRunRepository:
                         performance_payload,
                         separators=(",", ":"),
                     ),
-                    datetime.now().isoformat(),
+                    datetime.now(UTC).isoformat(),
                 ),
             )
 

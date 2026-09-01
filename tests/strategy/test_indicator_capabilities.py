@@ -1,4 +1,3 @@
-import pytest
 
 from private_quant_terminal.strategy.builtin_indicator_provider import (
     BuiltinStrategyIndicatorProvider,

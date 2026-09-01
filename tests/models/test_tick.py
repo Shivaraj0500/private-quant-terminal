@@ -1,5 +1,5 @@
 from dataclasses import FrozenInstanceError
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pytest
 
@@ -8,7 +8,7 @@ from private_quant_terminal.models.tick import Tick
 
 class TestTick:
     def test_creates_tick_with_required_fields(self) -> None:
-        timestamp = datetime(2026, 8, 24, 9, 15)
+        timestamp = datetime(2026, 8, 24, 9, 15, tzinfo=UTC)
 
         tick = Tick(
             symbol="NIFTY",
@@ -26,7 +26,7 @@ class TestTick:
         tick = Tick(
             symbol="NIFTY",
             exchange="NSE",
-            timestamp=datetime(2026, 8, 24, 9, 15),
+            timestamp=datetime(2026, 8, 24, 9, 15, tzinfo=UTC),
             last_price=25000.0,
         )
 
@@ -35,7 +35,7 @@ class TestTick:
         assert tick.ask is None
 
     def test_creates_tick_with_all_fields(self) -> None:
-        timestamp = datetime(2026, 8, 24, 9, 15)
+        timestamp = datetime(2026, 8, 24, 9, 15, tzinfo=UTC)
 
         tick = Tick(
             symbol="RELIANCE",
@@ -59,7 +59,7 @@ class TestTick:
         tick = Tick(
             symbol="TEST",
             exchange="NSE",
-            timestamp=datetime(2026, 8, 24, 9, 15),
+            timestamp=datetime(2026, 8, 24, 9, 15, tzinfo=UTC),
             last_price=0.0,
             volume=0.0,
             bid=0.0,
@@ -75,7 +75,7 @@ class TestTick:
         tick = Tick(
             symbol="TEST",
             exchange="NSE",
-            timestamp=datetime(2026, 8, 24, 9, 15),
+            timestamp=datetime(2026, 8, 24, 9, 15, tzinfo=UTC),
             last_price=-100.0,
             volume=-1000.0,
             bid=-101.0,
@@ -91,7 +91,7 @@ class TestTick:
         tick = Tick(
             symbol="NIFTY",
             exchange="NSE",
-            timestamp=datetime(2026, 8, 24, 9, 15),
+            timestamp=datetime(2026, 8, 24, 9, 15, tzinfo=UTC),
             last_price=25000.0,
         )
 

@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from private_quant_terminal.models import Candle
 from private_quant_terminal.strategy.builtin_indicator_provider import (
@@ -16,7 +16,7 @@ from private_quant_terminal.strategy.indicator_registry import (
 
 
 def candles(count: int = 30) -> list[Candle]:
-    start = datetime(2026, 8, 30, 9, 15)
+    start = datetime(2026, 8, 30, 9, 15, tzinfo=UTC)
 
     return [
         Candle(

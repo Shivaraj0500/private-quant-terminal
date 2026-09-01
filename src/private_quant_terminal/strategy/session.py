@@ -30,14 +30,18 @@ class StrategySession:
     cooldown_minutes: int | None = None
 
     def __post_init__(self) -> None:
-        if self.max_entries_per_session is not None:
-            if self.max_entries_per_session <= 0:
+        if (
+            self.max_entries_per_session is not None
+            and self.max_entries_per_session <= 0
+        ):
                 raise ValueError(
                     "max_entries_per_session must be greater than zero."
                 )
 
-        if self.max_trades_per_session is not None:
-            if self.max_trades_per_session <= 0:
+        if (
+            self.max_trades_per_session is not None
+            and self.max_trades_per_session <= 0
+        ):
                 raise ValueError(
                     "max_trades_per_session must be greater than zero."
                 )
@@ -58,8 +62,7 @@ class StrategySession:
                 "cooldown_minutes is only valid with AFTER_COOLDOWN."
             )
 
-        if self.mode is SessionMode.INTRADAY:
-            if self.force_exit_at is None:
+        if self.mode is SessionMode.INTRADAY and self.force_exit_at is None:
                 raise ValueError(
                     "INTRADAY sessions require force_exit_at."
                 )

@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from itertools import pairwise
 
 
 def _validate_period(period: int) -> None:

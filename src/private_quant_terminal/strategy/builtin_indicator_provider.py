@@ -3,13 +3,13 @@ from __future__ import annotations
 from collections.abc import Sequence
 
 from private_quant_terminal.models import Candle
+from private_quant_terminal.strategy.expressions import indicator
 from private_quant_terminal.strategy.indicator_providers import (
     IndicatorProvider,
     IndicatorResult,
 )
 from private_quant_terminal.strategy.indicator_specs import IndicatorSpec
 from private_quant_terminal.strategy.indicators import IndicatorEngine
-from private_quant_terminal.strategy.expressions import indicator
 
 
 class BuiltinStrategyIndicatorProvider(IndicatorProvider):
@@ -53,12 +53,12 @@ class BuiltinStrategyIndicatorProvider(IndicatorProvider):
 
         for name, value in parameters.items():
             if isinstance(value, bool):
-                raise ValueError(
+                raise TypeError(
                     f"Indicator parameter {name} cannot be boolean."
                 )
 
             if not isinstance(value, (int, float)):
-                raise ValueError(
+                raise TypeError(
                     f"Indicator parameter {name} must be numeric."
                 )
 
