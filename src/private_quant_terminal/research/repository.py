@@ -16,10 +16,30 @@ from private_quant_terminal.research.integrity import (
     ResearchIntegritySeverity,
     ResearchIntegrityStatus,
 )
+from private_quant_terminal.research.intelligence import (
+    ResearchIntelligenceConclusion,
+    ResearchIntelligenceConfidence,
+    ResearchIntelligenceReport,
+)
 from private_quant_terminal.research.run import (
     ResearchRun,
     ResearchRunStatus,
 )
+
+
+def _deserialize_intelligence(
+    payload: dict | None,
+) -> ResearchIntelligenceReport | None:
+    if payload is None:
+        return None
+
+    return ResearchIntelligenceReport(
+        conclusion=ResearchIntelligenceConclusion(payload["conclusion"]),
+        confidence=ResearchIntelligenceConfidence(payload["confidence"]),
+        strengths=tuple(payload.get("strengths", [])),
+        limitations=tuple(payload.get("limitations", [])),
+        next_investigations=tuple(payload.get("next_investigations", [])),
+    )
 
 
 def _deserialize_integrity(
@@ -115,6 +135,12 @@ class ResearchRunRepository:
                     "ADD COLUMN integrity_json TEXT"
                 )
 
+            if "intelligence_json" not in columns:
+                connection.execute(
+                    "ALTER TABLE research_run_results "
+                    "ADD COLUMN intelligence_json TEXT"
+                )
+
     def save(self, run: ResearchRun) -> None:
         """Persist a research run exactly once."""
 
@@ -187,6 +213,7 @@ class ResearchRunRepository:
         execution: ResearchExecutionResult,
         performance: object,
         integrity: ResearchIntegrityReport,
+        intelligence: ResearchIntelligenceReport | None = None,
     ) -> None:
         """Persist the immutable result of a completed research run."""
 
@@ -227,6 +254,7 @@ class ResearchRunRepository:
         integrity_payload = _json_safe(integrity)
 
         performance_payload = _json_safe(performance)
+        intelligence_payload = _json_safe(intelligence) if intelligence else None
 
         with self._database.transaction() as connection:
             existing = connection.execute(
@@ -251,9 +279,10 @@ class ResearchRunRepository:
                     final_equity,
                     integrity_json,
                     performance_json,
+                    intelligence_json,
                     created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     execution.run_id,
@@ -269,6 +298,10 @@ class ResearchRunRepository:
                         performance_payload,
                         separators=(",", ":"),
                     ),
+                    json.dumps(
+                        intelligence_payload,
+                        separators=(",", ":"),
+                    ) if intelligence_payload is not None else None,
                     datetime.now(UTC).isoformat(),
                 ),
             )
@@ -293,7 +326,8 @@ class ResearchRunRepository:
                     equity_curve_json,
                     final_equity,
                     integrity_json,
-                    performance_json
+                    performance_json,
+                    intelligence_json
                 FROM research_run_results
                 WHERE run_id = ?
                 """,
@@ -355,10 +389,18 @@ class ResearchRunRepository:
 
         integrity = _deserialize_integrity(integrity_payload)
 
+        intelligence_payload = (
+            json.loads(row["intelligence_json"])
+            if row["intelligence_json"]
+            else None
+        )
+        intelligence = _deserialize_intelligence(intelligence_payload)
+
         return (
             execution,
             integrity,
             json.loads(row["performance_json"]),
+            intelligence,
         )
 
     def update_status(

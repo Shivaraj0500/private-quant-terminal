@@ -11,6 +11,9 @@ from private_quant_terminal.research import (
     ResearchIntegrityReport,
     ResearchIntegritySeverity,
     ResearchIntegrityStatus,
+    ResearchIntelligenceConclusion,
+    ResearchIntelligenceConfidence,
+    ResearchIntelligenceReport,
     ResearchParameters,
     ResearchRun,
     ResearchRunRepository,
@@ -102,6 +105,14 @@ def test_save_result_persists_and_restores_integrity(
         ),
     )
 
+    intelligence = ResearchIntelligenceReport(
+        conclusion=ResearchIntelligenceConclusion.POSITIVE_EVIDENCE,
+        confidence=ResearchIntelligenceConfidence.HIGH,
+        strengths=("Positive completed-trade evidence.",),
+        limitations=("More out-of-sample validation is needed.",),
+        next_investigations=("Test robustness across alternative periods.",),
+    )
+
     performance = {
         "realized_pnl": 9.0,
         "unrealized_pnl": 0.0,
@@ -125,15 +136,20 @@ def test_save_result_persists_and_restores_integrity(
         execution,
         performance,
         integrity,
+        intelligence,
     )
 
-    restored_execution, restored_integrity, restored_performance = (
-        repository.get_result(run.run_id)
-    )
+    (
+        restored_execution,
+        restored_integrity,
+        restored_performance,
+        restored_intelligence,
+    ) = repository.get_result(run.run_id)
 
     assert restored_execution == execution
     assert restored_integrity == integrity
     assert restored_performance == performance
+    assert restored_intelligence == intelligence
 
 
 def test_save_and_get_round_trip(tmp_path) -> None:

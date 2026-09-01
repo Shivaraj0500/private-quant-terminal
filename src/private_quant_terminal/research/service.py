@@ -204,6 +204,7 @@ class ResearchRunService:
             execution=execution,
             performance=performance,
             integrity=integrity,
+            intelligence=intelligence,
         )
 
         if should_update_lifecycle:

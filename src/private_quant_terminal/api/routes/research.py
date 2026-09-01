@@ -7,6 +7,7 @@ from private_quant_terminal.api.schemas.research import (
     ResearchEventResponse,
     ResearchExecutionResponse,
     ResearchIntegrityResponse,
+    ResearchIntelligenceResponse,
     ResearchPerformanceResponse,
     ResearchRunRequest,
     ResearchRunResponse,
@@ -119,7 +120,7 @@ def get_research_run(
 
     try:
         run = container.research_repository.get(run_id)
-        execution, integrity, performance = (
+        execution, integrity, performance, intelligence = (
             container.research_repository.get_result(run_id)
         )
     except KeyError as exc:
@@ -133,6 +134,7 @@ def get_research_run(
         execution=execution,
         integrity=integrity,
         performance=performance,
+        intelligence=intelligence,
     )
 
 
@@ -142,6 +144,7 @@ def _persisted_result_response(
     execution,
     integrity,
     performance,
+    intelligence,
 ) -> ResearchRunResponse:
     """Build the public response from persisted research evidence."""
 
@@ -205,6 +208,17 @@ def _persisted_result_response(
                 0.0,
             ),
             calmar_ratio=performance.get("calmar_ratio", 0.0),
+        ),
+        intelligence=(
+            {
+                "conclusion": intelligence.conclusion.value,
+                "confidence": intelligence.confidence.value,
+                "strengths": list(intelligence.strengths),
+                "limitations": list(intelligence.limitations),
+                "next_investigations": list(intelligence.next_investigations),
+            }
+            if intelligence is not None
+            else None
         ),
         integrity=ResearchIntegrityResponse(
             status=integrity.status.value,
@@ -281,6 +295,19 @@ def _to_response(result) -> ResearchRunResponse:
             sortino_ratio=risk.sortino_ratio,
             downside_deviation=risk.downside_deviation,
             calmar_ratio=risk.calmar_ratio,
+        ),
+        intelligence=(
+            ResearchIntelligenceResponse(
+                conclusion=result.intelligence.conclusion.value,
+                confidence=result.intelligence.confidence.value,
+                strengths=list(result.intelligence.strengths),
+                limitations=list(result.intelligence.limitations),
+                next_investigations=list(
+                    result.intelligence.next_investigations
+                ),
+            )
+            if result.intelligence is not None
+            else None
         ),
         integrity=ResearchIntegrityResponse(
             status=result.integrity.status.value,

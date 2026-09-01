@@ -49,6 +49,14 @@ class ResearchEventResponse(BaseModel):
     quantity: float
 
 
+class ResearchIntelligenceResponse(BaseModel):
+    conclusion: str
+    confidence: str
+    strengths: list[str]
+    limitations: list[str]
+    next_investigations: list[str]
+
+
 class ResearchIntegrityFindingResponse(BaseModel):
     severity: str
     code: str
@@ -100,3 +108,4 @@ class ResearchRunResponse(BaseModel):
     execution: ResearchExecutionResponse
     performance: ResearchPerformanceResponse
     integrity: ResearchIntegrityResponse
+    intelligence: ResearchIntelligenceResponse | None = None
