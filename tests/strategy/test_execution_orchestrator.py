@@ -585,7 +585,9 @@ def test_build_runtime_context_uses_orchestrator_session_state() -> None:
 def test_build_runtime_context_defaults_position_to_empty() -> None:
     from datetime import UTC, datetime
 
-    from private_quant_terminal.strategy.variables import MarketContext
+    from private_quant_terminal.strategy.variables import (
+    MarketContext,
+)
 
     timestamp = datetime(2026, 8, 30, 10, 0, tzinfo=UTC)
 
@@ -792,3 +794,118 @@ def test_evaluate_and_process_with_no_rules_does_not_mutate_state() -> None:
     assert evaluation.actions == ()
     assert result.action_results == ()
     assert orchestrator.runtime_state.session == before.session
+
+
+def test_build_runtime_context_derives_open_position_from_action_processor() -> None:
+    from datetime import UTC, datetime
+
+    from private_quant_terminal.strategy.variables import (
+    MarketContext,
+    SessionContext,
+)
+
+    timestamp = datetime(2026, 8, 30, 10, 0, tzinfo=UTC)
+
+    orchestrator = ExecutionOrchestrator()
+    orchestrator.start()
+
+    group = option_group("derived-position")
+
+    orchestrator.process(
+        (EnterAction(position=group),),
+        context=SessionContext(current_time=timestamp),
+    )
+
+    context = orchestrator.build_runtime_context(
+        market=MarketContext(
+            timestamp=timestamp,
+            open=100.0,
+            high=105.0,
+            low=99.0,
+            close=103.0,
+        ),
+    )
+
+    assert context.position.quantity == 1.0
+    assert context.position.entry_timestamp == timestamp
+    assert context.is_position_open is True
+
+
+def test_build_runtime_context_is_flat_after_position_exit() -> None:
+    from datetime import UTC, datetime
+
+    from private_quant_terminal.strategy.variables import (
+    MarketContext,
+    SessionContext,
+)
+
+    entry_time = datetime(2026, 8, 30, 10, 0, tzinfo=UTC)
+    exit_time = datetime(2026, 8, 30, 10, 30, tzinfo=UTC)
+
+    orchestrator = ExecutionOrchestrator()
+    orchestrator.start()
+
+    group = option_group("derived-exit")
+
+    orchestrator.process(
+        (EnterAction(position=group),),
+        context=SessionContext(current_time=entry_time),
+    )
+
+    orchestrator.process(
+        (ExitAction(group_id="derived-exit"),),
+        context=SessionContext(current_time=exit_time),
+    )
+
+    context = orchestrator.build_runtime_context(
+        market=MarketContext(
+            timestamp=exit_time,
+            open=100.0,
+            high=105.0,
+            low=99.0,
+            close=103.0,
+        ),
+    )
+
+    assert context.position.quantity == 0.0
+    assert context.position.entry_timestamp is None
+    assert context.is_position_open is False
+
+
+def test_build_runtime_context_counts_multiple_open_position_groups() -> None:
+    from datetime import UTC, datetime
+
+    from private_quant_terminal.strategy.variables import (
+    MarketContext,
+    SessionContext,
+)
+
+    timestamp = datetime(2026, 8, 30, 10, 0, tzinfo=UTC)
+
+    orchestrator = ExecutionOrchestrator()
+    orchestrator.start()
+
+    first = option_group("position-one")
+    second = option_group("position-two")
+
+    orchestrator.process(
+        (
+            EnterAction(position=first),
+            EnterAction(position=second),
+        ),
+        context=SessionContext(current_time=timestamp),
+    )
+
+    context = orchestrator.build_runtime_context(
+        market=MarketContext(
+            timestamp=timestamp,
+            open=100.0,
+            high=105.0,
+            low=99.0,
+            close=103.0,
+        ),
+    )
+
+    assert context.position.quantity == 2.0
+    assert context.position.entry_timestamp == timestamp
+    assert context.is_position_open is True
