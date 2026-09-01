@@ -4,10 +4,18 @@ import pytest
 
 from private_quant_terminal.persistence import Database
 from private_quant_terminal.research import (
+    ResearchExecutionEvent,
+    ResearchExecutionEventType,
+    ResearchExecutionResult,
+    ResearchIntegrityFinding,
+    ResearchIntegrityReport,
+    ResearchIntegritySeverity,
+    ResearchIntegrityStatus,
     ResearchParameters,
     ResearchRun,
     ResearchRunRepository,
     ResearchRunStatus,
+    ResearchTrade,
     canonical_parameters_json,
     parameters_hash,
 )
@@ -36,6 +44,96 @@ def make_run(run_id: str = "run-1") -> ResearchRun:
         status=ResearchRunStatus.CREATED,
         created_at=datetime(2026, 1, 1, tzinfo=UTC),
     )
+
+
+def test_save_result_persists_and_restores_integrity(
+    tmp_path,
+) -> None:
+    repository = ResearchRunRepository(
+        Database(tmp_path / "research.db")
+    )
+
+    run = make_run()
+    repository.save(run)
+
+    execution = ResearchExecutionResult(
+        run_id=run.run_id,
+        events=(
+            ResearchExecutionEvent(
+                timestamp=datetime(2026, 1, 1, tzinfo=UTC),
+                event_type=ResearchExecutionEventType.ENTRY,
+                symbol="RELIANCE",
+                price=100.0,
+                quantity=1.0,
+            ),
+            ResearchExecutionEvent(
+                timestamp=datetime(2026, 1, 2, tzinfo=UTC),
+                event_type=ResearchExecutionEventType.EXIT,
+                symbol="RELIANCE",
+                price=110.0,
+                quantity=1.0,
+            ),
+        ),
+        trades=(
+            ResearchTrade(
+                symbol="RELIANCE",
+                entry_time=datetime(2026, 1, 1, tzinfo=UTC),
+                exit_time=datetime(2026, 1, 2, tzinfo=UTC),
+                entry_price=100.0,
+                exit_price=110.0,
+                quantity=1.0,
+                gross_pnl=10.0,
+                transaction_cost=1.0,
+                net_pnl=9.0,
+            ),
+        ),
+        equity_curve=(),
+        final_equity=100009.0,
+    )
+
+    integrity = ResearchIntegrityReport(
+        status=ResearchIntegrityStatus.PASS,
+        findings=(
+            ResearchIntegrityFinding(
+                severity=ResearchIntegritySeverity.PASS,
+                code="INTEGRITY_OK",
+                message="Research execution passed integrity checks.",
+            ),
+        ),
+    )
+
+    performance = {
+        "realized_pnl": 9.0,
+        "unrealized_pnl": 0.0,
+        "total_pnl": 9.0,
+        "winning_trades": 1,
+        "losing_trades": 0,
+        "win_rate": 1.0,
+        "average_win": 9.0,
+        "average_loss": 0.0,
+        "profit_factor": 0.0,
+        "returns": [0.00009],
+        "max_drawdown": 0.0,
+        "max_drawdown_percent": 0.0,
+        "sharpe_ratio": 0.0,
+        "sortino_ratio": 0.0,
+        "downside_deviation": 0.0,
+        "calmar_ratio": 0.0,
+    }
+
+    repository.save_result(
+        execution,
+        performance,
+        integrity,
+    )
+
+    restored_execution, restored_integrity, restored_performance = (
+        repository.get_result(run.run_id)
+    )
+
+    assert restored_execution == execution
+    assert restored_integrity == integrity
+    assert restored_performance == performance
 
 
 def test_save_and_get_round_trip(tmp_path) -> None:

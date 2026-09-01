@@ -56,6 +56,14 @@ def test_get_research_run_returns_complete_persisted_evidence() -> None:
     created = create_response.json()
     run_id = created["run"]["run_id"]
 
+    assert "integrity" in created
+    assert created["integrity"]["status"] == "WARN"
+    assert created["integrity"]["passed"] is False
+    assert created["integrity"]["warnings"] == 1
+    assert created["integrity"]["failures"] == 0
+    assert created["integrity"]["findings"]
+    assert created["integrity"]["findings"][0]["code"] == "OPEN_POSITION"
+
     response = client.get(
         f"/research/runs/{run_id}",
     )
@@ -69,6 +77,14 @@ def test_get_research_run_returns_complete_persisted_evidence() -> None:
 
     assert "execution" in data
     assert "performance" in data
+    assert "integrity" in data
+
+    assert data["integrity"]["status"] == "WARN"
+    assert data["integrity"]["passed"] is False
+    assert data["integrity"]["warnings"] == 1
+    assert data["integrity"]["failures"] == 0
+    assert data["integrity"]["findings"]
+    assert data["integrity"]["findings"][0]["code"] == "OPEN_POSITION"
 
     assert data["execution"]["run_id"] == run_id
     assert isinstance(data["execution"]["events"], list)

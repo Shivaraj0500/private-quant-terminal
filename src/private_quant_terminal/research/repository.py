@@ -10,10 +10,49 @@ from private_quant_terminal.research.execution import (
     ResearchExecutionResult,
     ResearchTrade,
 )
+from private_quant_terminal.research.integrity import (
+    ResearchIntegrityFinding,
+    ResearchIntegrityReport,
+    ResearchIntegritySeverity,
+    ResearchIntegrityStatus,
+)
 from private_quant_terminal.research.run import (
     ResearchRun,
     ResearchRunStatus,
 )
+
+
+def _deserialize_integrity(
+    payload: dict | None,
+) -> ResearchIntegrityReport:
+    if payload is None:
+        return ResearchIntegrityReport(
+            status=ResearchIntegrityStatus.WARN,
+            findings=(
+                ResearchIntegrityFinding(
+                    severity=ResearchIntegritySeverity.WARN,
+                    code="INTEGRITY_NOT_PERSISTED",
+                    message=(
+                        "Integrity evidence was not persisted for this "
+                        "research result."
+                    ),
+                ),
+            ),
+        )
+
+    findings = tuple(
+        ResearchIntegrityFinding(
+            severity=ResearchIntegritySeverity(item["severity"]),
+            code=item["code"],
+            message=item["message"],
+        )
+        for item in payload.get("findings", [])
+    )
+
+    return ResearchIntegrityReport(
+        status=ResearchIntegrityStatus(payload["status"]),
+        findings=findings,
+    )
 
 
 class ResearchRunRepository:
@@ -53,6 +92,7 @@ class ResearchRunRepository:
                     trades_json TEXT NOT NULL,
                     equity_curve_json TEXT NOT NULL,
                     final_equity REAL NOT NULL,
+                    integrity_json TEXT,
                     performance_json TEXT NOT NULL,
                     created_at TEXT NOT NULL,
                     FOREIGN KEY (run_id)
@@ -61,6 +101,19 @@ class ResearchRunRepository:
                 )
                 """
             )
+
+            columns = {
+                row["name"]
+                for row in connection.execute(
+                    "PRAGMA table_info(research_run_results)"
+                ).fetchall()
+            }
+
+            if "integrity_json" not in columns:
+                connection.execute(
+                    "ALTER TABLE research_run_results "
+                    "ADD COLUMN integrity_json TEXT"
+                )
 
     def save(self, run: ResearchRun) -> None:
         """Persist a research run exactly once."""
@@ -133,6 +186,7 @@ class ResearchRunRepository:
         self,
         execution: ResearchExecutionResult,
         performance: object,
+        integrity: ResearchIntegrityReport,
     ) -> None:
         """Persist the immutable result of a completed research run."""
 
@@ -170,6 +224,8 @@ class ResearchRunRepository:
             for point in execution.equity_curve
         ]
 
+        integrity_payload = _json_safe(integrity)
+
         performance_payload = _json_safe(performance)
 
         with self._database.transaction() as connection:
@@ -193,10 +249,11 @@ class ResearchRunRepository:
                     trades_json,
                     equity_curve_json,
                     final_equity,
+                    integrity_json,
                     performance_json,
                     created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     execution.run_id,
@@ -204,6 +261,10 @@ class ResearchRunRepository:
                     json.dumps(trades, separators=(",", ":")),
                     json.dumps(equity_curve, separators=(",", ":")),
                     execution.final_equity,
+                    json.dumps(
+                        integrity_payload,
+                        separators=(",", ":"),
+                    ),
                     json.dumps(
                         performance_payload,
                         separators=(",", ":"),
@@ -215,7 +276,11 @@ class ResearchRunRepository:
     def get_result(
         self,
         run_id: str,
-    ) -> tuple[ResearchExecutionResult, dict]:
+    ) -> tuple[
+        ResearchExecutionResult,
+        ResearchIntegrityReport,
+        dict,
+    ]:
         """Retrieve persisted execution evidence and performance payload."""
 
         with self._database.connect() as connection:
@@ -227,6 +292,7 @@ class ResearchRunRepository:
                     trades_json,
                     equity_curve_json,
                     final_equity,
+                    integrity_json,
                     performance_json
                 FROM research_run_results
                 WHERE run_id = ?
@@ -283,7 +349,17 @@ class ResearchRunRepository:
             final_equity=float(row["final_equity"]),
         )
 
-        return execution, json.loads(row["performance_json"])
+        integrity_payload = json.loads(
+            row["integrity_json"]
+        ) if row["integrity_json"] else None
+
+        integrity = _deserialize_integrity(integrity_payload)
+
+        return (
+            execution,
+            integrity,
+            json.loads(row["performance_json"]),
+        )
 
     def update_status(
         self,

@@ -6,6 +6,7 @@ from private_quant_terminal.api.schemas.research import (
     ResearchEquityPointResponse,
     ResearchEventResponse,
     ResearchExecutionResponse,
+    ResearchIntegrityResponse,
     ResearchPerformanceResponse,
     ResearchRunRequest,
     ResearchRunResponse,
@@ -118,7 +119,7 @@ def get_research_run(
 
     try:
         run = container.research_repository.get(run_id)
-        execution, performance = (
+        execution, integrity, performance = (
             container.research_repository.get_result(run_id)
         )
     except KeyError as exc:
@@ -130,6 +131,7 @@ def get_research_run(
     return _persisted_result_response(
         run=run,
         execution=execution,
+        integrity=integrity,
         performance=performance,
     )
 
@@ -138,6 +140,7 @@ def _persisted_result_response(
     *,
     run,
     execution,
+    integrity,
     performance,
 ) -> ResearchRunResponse:
     """Build the public response from persisted research evidence."""
@@ -203,7 +206,22 @@ def _persisted_result_response(
             ),
             calmar_ratio=performance.get("calmar_ratio", 0.0),
         ),
+        integrity=ResearchIntegrityResponse(
+            status=integrity.status.value,
+            passed=integrity.passed,
+            warnings=integrity.warnings,
+            failures=integrity.failures,
+            findings=[
+                {
+                    "severity": finding.severity.value,
+                    "code": finding.code,
+                    "message": finding.message,
+                }
+                for finding in integrity.findings
+            ],
+        ),
     )
+
 
 def _to_response(result) -> ResearchRunResponse:
     trading = result.performance.trading_performance
@@ -263,6 +281,20 @@ def _to_response(result) -> ResearchRunResponse:
             sortino_ratio=risk.sortino_ratio,
             downside_deviation=risk.downside_deviation,
             calmar_ratio=risk.calmar_ratio,
+        ),
+        integrity=ResearchIntegrityResponse(
+            status=result.integrity.status.value,
+            passed=result.integrity.passed,
+            warnings=result.integrity.warnings,
+            failures=result.integrity.failures,
+            findings=[
+                {
+                    "severity": finding.severity.value,
+                    "code": finding.code,
+                    "message": finding.message,
+                }
+                for finding in result.integrity.findings
+            ],
         ),
     )
 

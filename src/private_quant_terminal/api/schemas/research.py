@@ -49,6 +49,20 @@ class ResearchEventResponse(BaseModel):
     quantity: float
 
 
+class ResearchIntegrityFindingResponse(BaseModel):
+    severity: str
+    code: str
+    message: str
+
+
+class ResearchIntegrityResponse(BaseModel):
+    status: str
+    passed: bool
+    warnings: int
+    failures: int
+    findings: list[ResearchIntegrityFindingResponse]
+
+
 class ResearchPerformanceResponse(BaseModel):
     realized_pnl: float
     unrealized_pnl: float
@@ -85,3 +99,4 @@ class ResearchRunResponse(BaseModel):
     run: ResearchRunSummary
     execution: ResearchExecutionResponse
     performance: ResearchPerformanceResponse
+    integrity: ResearchIntegrityResponse

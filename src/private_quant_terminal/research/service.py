@@ -14,6 +14,7 @@ from private_quant_terminal.research.execution import (
 from private_quant_terminal.research.executor import ResearchExecutor
 from private_quant_terminal.research.integrity import (
     ResearchIntegrityAnalyzer,
+    ResearchIntegrityReport,
     ResearchIntegrityStatus,
 )
 from private_quant_terminal.research.performance import (
@@ -48,6 +49,7 @@ class ResearchAnalysisResult:
     run: ResearchRun
     execution: ResearchExecutionResult
     performance: ResearchPerformanceReport
+    integrity: ResearchIntegrityReport
 
 
 class ResearchRunService:
@@ -192,6 +194,7 @@ class ResearchRunService:
         self._repository.save_result(
             execution=execution,
             performance=performance,
+            integrity=integrity,
         )
 
         if should_update_lifecycle:
@@ -206,6 +209,7 @@ class ResearchRunService:
             run=completed_run,
             execution=execution,
             performance=performance,
+            integrity=integrity,
         )
 
 
