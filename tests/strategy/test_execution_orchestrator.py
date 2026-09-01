@@ -331,3 +331,58 @@ def test_processing_rejected_by_session_and_risk_does_not_process_actions() -> N
     assert orchestrator.action_processor.get_position(
         "risk-entry"
     ) is None
+
+def test_exit_is_allowed_after_entry_window_closes() -> None:
+    from datetime import UTC, datetime, time
+
+    from private_quant_terminal.strategy.session import StrategySession
+    from private_quant_terminal.strategy.states import SessionMode
+    from private_quant_terminal.strategy.variables import SessionContext
+
+    orchestrator = ExecutionOrchestrator()
+    orchestrator.start()
+
+    group = option_group("exit-entry-window")
+
+    orchestrator.process(
+        (EnterAction(position=group),)
+    )
+
+    timestamp = datetime(
+        2026,
+        8,
+        30,
+        15,
+        0,
+        tzinfo=UTC,
+    )
+
+    session = StrategySession(
+        mode=SessionMode.OVERNIGHT,
+        market_start=time(9, 15),
+        market_end=time(15, 30),
+        entry_start=time(9, 30),
+        entry_end=time(14, 30),
+    )
+
+    context = SessionContext(
+        current_time=timestamp,
+        last_entry_time=datetime(
+            2026,
+            8,
+            30,
+            10,
+            0,
+            tzinfo=UTC,
+        ),
+    )
+
+    result = orchestrator.process(
+        (ExitAction(group_id="exit-entry-window"),),
+        session=session,
+        context=context,
+    )
+
+    assert result.session_allowed is True
+    assert result.action_results
+    assert result.rejection_reasons == ()

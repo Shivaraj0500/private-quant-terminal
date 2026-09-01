@@ -6,7 +6,11 @@ from private_quant_terminal.strategy.action_processor import (
     ActionProcessingResult,
     ActionProcessor,
 )
-from private_quant_terminal.strategy.actions import StrategyAction
+from private_quant_terminal.strategy.actions import (
+    EnterAction,
+    RollAction,
+    StrategyAction,
+)
 from private_quant_terminal.strategy.execution_state import ExecutionStateManager
 from private_quant_terminal.strategy.risk import (
     StrategyRiskEvaluator,
@@ -85,6 +89,17 @@ class ExecutionOrchestrator:
 
         self.state_manager.complete()
 
+    @staticmethod
+    def _requires_entry_policy(
+        actions: tuple[StrategyAction, ...],
+    ) -> bool:
+        """Return whether the action batch requires entry policy checks."""
+
+        return any(
+            isinstance(action, (EnterAction, RollAction))
+            for action in actions
+        )
+
     def process(
         self,
         actions: tuple[StrategyAction, ...],
@@ -104,7 +119,11 @@ class ExecutionOrchestrator:
         rejection_reasons: list[str] = []
         risk_result: StrategyRiskResult | None = None
 
-        if session is not None and context is not None:
+        if (
+            session is not None
+            and context is not None
+            and self._requires_entry_policy(actions)
+        ):
             session_allowed = self.session_policy.entry_allowed(
                 session,
                 context,
