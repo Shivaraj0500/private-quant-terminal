@@ -13,6 +13,13 @@ from private_quant_terminal.research.execution import (
 from private_quant_terminal.research.executor import (
     ResearchExecutor,
 )
+from private_quant_terminal.research.integrity import (
+    ResearchIntegrityAnalyzer,
+    ResearchIntegrityFinding,
+    ResearchIntegrityReport,
+    ResearchIntegritySeverity,
+    ResearchIntegrityStatus,
+)
 from private_quant_terminal.research.performance import (
     ResearchPerformanceAnalyzer,
     ResearchPerformanceReport,
@@ -41,6 +48,11 @@ __all__ = [
     "ResearchExecutionRequest",
     "ResearchExecutionResult",
     "ResearchExecutor",
+    "ResearchIntegrityAnalyzer",
+    "ResearchIntegrityFinding",
+    "ResearchIntegrityReport",
+    "ResearchIntegritySeverity",
+    "ResearchIntegrityStatus",
     "ResearchParameters",
     "ResearchPerformanceAnalyzer",
     "ResearchPerformanceReport",
