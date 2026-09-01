@@ -386,3 +386,58 @@ def test_exit_is_allowed_after_entry_window_closes() -> None:
     assert result.session_allowed is True
     assert result.action_results
     assert result.rejection_reasons == ()
+
+
+def test_successful_entry_advances_runtime_state() -> None:
+    from datetime import UTC, datetime
+
+    from private_quant_terminal.strategy.variables import SessionContext
+
+    timestamp = datetime(2026, 8, 30, 10, 0, tzinfo=UTC)
+
+    orchestrator = ExecutionOrchestrator()
+    orchestrator.start()
+
+    group = option_group("runtime-entry")
+
+    result = orchestrator.process(
+        (EnterAction(position=group),),
+        context=SessionContext(
+            current_time=timestamp,
+        ),
+    )
+
+    assert len(result.action_results) == 1
+    assert orchestrator.runtime_state.session.entries_today == 1
+    assert orchestrator.runtime_state.session.trades_today == 1
+
+
+def test_successful_exit_updates_runtime_state() -> None:
+    from datetime import UTC, datetime
+
+    from private_quant_terminal.strategy.variables import SessionContext
+
+    entry_time = datetime(2026, 8, 30, 10, 0, tzinfo=UTC)
+    exit_time = datetime(2026, 8, 30, 15, 0, tzinfo=UTC)
+
+    orchestrator = ExecutionOrchestrator()
+    orchestrator.start()
+
+    group = option_group("runtime-exit")
+
+    orchestrator.process(
+        (EnterAction(position=group),),
+        context=SessionContext(
+            current_time=entry_time,
+        ),
+    )
+
+    result = orchestrator.process(
+        (ExitAction(group_id="runtime-exit"),),
+        context=SessionContext(
+            current_time=exit_time,
+        ),
+    )
+
+    assert len(result.action_results) == 1
+    assert orchestrator.runtime_state.session.last_exit_time == exit_time

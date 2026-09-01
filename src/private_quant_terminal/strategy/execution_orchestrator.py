@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 from private_quant_terminal.strategy.action_processor import (
     ActionProcessingResult,
@@ -15,6 +16,9 @@ from private_quant_terminal.strategy.execution_state import ExecutionStateManage
 from private_quant_terminal.strategy.risk import (
     StrategyRiskEvaluator,
     StrategyRiskResult,
+)
+from private_quant_terminal.strategy.runtime_state import (
+    StrategyRuntimeState,
 )
 from private_quant_terminal.strategy.session import StrategySession
 from private_quant_terminal.strategy.session_policy import (
@@ -56,6 +60,11 @@ class ExecutionOrchestrator:
         )
         self.risk_evaluator = (
             risk_evaluator or StrategyRiskEvaluator()
+        )
+        self.runtime_state = StrategyRuntimeState(
+            session=SessionContext(
+                current_time=datetime.now(UTC),
+            )
         )
 
     @property
@@ -156,6 +165,26 @@ class ExecutionOrchestrator:
             )
 
         results = self.action_processor.process_all(actions)
+
+        timestamp = (
+            context.current_time
+            if context is not None
+            else (
+                runtime_context.market.timestamp
+                if runtime_context is not None
+                else datetime.now(UTC)
+            )
+        )
+
+        runtime_state = self.runtime_state
+
+        for action in actions:
+            runtime_state = runtime_state.apply(
+                action,
+                timestamp,
+            )
+
+        self.runtime_state = runtime_state
 
         return ExecutionOrchestrationResult(
             action_results=results,
