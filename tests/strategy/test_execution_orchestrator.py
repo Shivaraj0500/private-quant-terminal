@@ -526,3 +526,116 @@ def test_advance_bar_rejects_negative_minutes() -> None:
             datetime(2026, 8, 30, 10, 0, tzinfo=UTC),
             minutes=-1.0,
         )
+
+
+def test_build_runtime_context_uses_orchestrator_session_state() -> None:
+    from datetime import UTC, datetime
+
+    from private_quant_terminal.strategy.variables import (
+        MarketContext,
+        PositionContext,
+        SessionContext,
+    )
+
+    entry_time = datetime(2026, 8, 30, 10, 0, tzinfo=UTC)
+    bar_time = datetime(2026, 8, 30, 10, 5, tzinfo=UTC)
+
+    orchestrator = ExecutionOrchestrator()
+    orchestrator.start()
+
+    group = option_group("context-entry")
+
+    orchestrator.process(
+        (EnterAction(position=group),),
+        context=SessionContext(
+            current_time=entry_time,
+        ),
+    )
+
+    orchestrator.advance_bar(
+        bar_time,
+        minutes=5.0,
+    )
+
+    context = orchestrator.build_runtime_context(
+        market=MarketContext(
+            timestamp=bar_time,
+            open=100.0,
+            high=105.0,
+            low=99.0,
+            close=103.0,
+        ),
+        position=PositionContext(
+            quantity=1,
+            entry_price=100.0,
+            current_price=103.0,
+        ),
+    )
+
+    assert context.market.close == 103.0
+    assert context.position.quantity == 1
+    assert context.session is not None
+    assert context.session.current_time == bar_time
+    assert context.session.entries_today == 1
+    assert context.session.trades_today == 1
+    assert context.session.bars_since_entry == 1
+    assert context.session.minutes_since_entry == 5.0
+
+
+def test_build_runtime_context_defaults_position_to_empty() -> None:
+    from datetime import UTC, datetime
+
+    from private_quant_terminal.strategy.variables import MarketContext
+
+    timestamp = datetime(2026, 8, 30, 10, 0, tzinfo=UTC)
+
+    orchestrator = ExecutionOrchestrator()
+
+    context = orchestrator.build_runtime_context(
+        market=MarketContext(
+            timestamp=timestamp,
+            open=100.0,
+            high=105.0,
+            low=99.0,
+            close=103.0,
+        ),
+    )
+
+    assert context.position.quantity == 0.0
+    assert context.position.entry_price is None
+    assert context.session == orchestrator.runtime_state.session
+
+
+def test_build_runtime_context_preserves_custom_variables() -> None:
+    from datetime import UTC, datetime
+
+    from private_quant_terminal.strategy.variables import (
+        MarketContext,
+        StrategyVariable,
+        VariableScope,
+        VariableType,
+    )
+
+    timestamp = datetime(2026, 8, 30, 10, 0, tzinfo=UTC)
+
+    orchestrator = ExecutionOrchestrator()
+
+    context = orchestrator.build_runtime_context(
+        market=MarketContext(
+            timestamp=timestamp,
+            open=100.0,
+            high=105.0,
+            low=99.0,
+            close=103.0,
+        ),
+        variables=(
+            StrategyVariable(
+                name="risk_per_trade",
+                variable_type=VariableType.NUMBER,
+                scope=VariableScope.STRATEGY,
+                value=1.0,
+            ),
+        ),
+    )
+
+    assert context.resolve("risk_per_trade") == 1.0

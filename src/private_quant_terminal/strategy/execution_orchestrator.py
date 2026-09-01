@@ -26,8 +26,11 @@ from private_quant_terminal.strategy.session_policy import (
 )
 from private_quant_terminal.strategy.states import StrategyExecutionState
 from private_quant_terminal.strategy.variables import (
+    MarketContext,
+    PositionContext,
     SessionContext,
     StrategyRuntimeContext,
+    StrategyVariable,
 )
 
 
@@ -117,6 +120,26 @@ class ExecutionOrchestrator:
         )
 
         return self.runtime_state
+
+    def build_runtime_context(
+        self,
+        *,
+        market: MarketContext,
+        position: PositionContext | None = None,
+        variables: tuple[StrategyVariable, ...] = (),
+    ) -> StrategyRuntimeContext:
+        """Build an evaluation context from current runtime state."""
+
+        return StrategyRuntimeContext(
+            market=market,
+            position=(
+                position
+                if position is not None
+                else PositionContext()
+            ),
+            session=self.runtime_state.session,
+            variables=variables,
+        )
 
     @staticmethod
     def _requires_entry_policy(
