@@ -441,3 +441,88 @@ def test_successful_exit_updates_runtime_state() -> None:
 
     assert len(result.action_results) == 1
     assert orchestrator.runtime_state.session.last_exit_time == exit_time
+
+
+def test_advance_bar_updates_runtime_state() -> None:
+    from datetime import UTC, datetime
+
+    timestamp = datetime(2026, 8, 30, 10, 0, tzinfo=UTC)
+    next_timestamp = datetime(2026, 8, 30, 10, 5, tzinfo=UTC)
+
+    orchestrator = ExecutionOrchestrator()
+    orchestrator.start()
+
+    orchestrator.advance_bar(
+        timestamp,
+        minutes=5.0,
+    )
+
+    result = orchestrator.advance_bar(
+        next_timestamp,
+        minutes=5.0,
+    )
+
+    assert result.session.current_time == next_timestamp
+    assert result.session.bars_since_entry == 2
+    assert result.session.minutes_since_entry is None
+
+
+def test_advance_bar_after_entry_tracks_elapsed_time() -> None:
+    from datetime import UTC, datetime
+
+    from private_quant_terminal.strategy.variables import SessionContext
+
+    entry_time = datetime(2026, 8, 30, 10, 0, tzinfo=UTC)
+    next_timestamp = datetime(2026, 8, 30, 10, 5, tzinfo=UTC)
+
+    orchestrator = ExecutionOrchestrator()
+    orchestrator.start()
+
+    group = option_group("bar-entry")
+
+    orchestrator.process(
+        (EnterAction(position=group),),
+        context=SessionContext(
+            current_time=entry_time,
+        ),
+    )
+
+    result = orchestrator.advance_bar(
+        next_timestamp,
+        minutes=5.0,
+    )
+
+    assert result.session.current_time == next_timestamp
+    assert result.session.bars_since_entry == 1
+    assert result.session.minutes_since_entry == 5.0
+
+
+def test_advance_bar_requires_running_execution() -> None:
+    from datetime import UTC, datetime
+
+    orchestrator = ExecutionOrchestrator()
+
+    with pytest.raises(
+        ValueError,
+        match="must be RUNNING to advance a bar",
+    ):
+        orchestrator.advance_bar(
+            datetime(2026, 8, 30, 10, 0, tzinfo=UTC),
+            minutes=1.0,
+        )
+
+
+def test_advance_bar_rejects_negative_minutes() -> None:
+    from datetime import UTC, datetime
+
+    orchestrator = ExecutionOrchestrator()
+    orchestrator.start()
+
+    with pytest.raises(
+        ValueError,
+        match="minutes cannot be negative",
+    ):
+        orchestrator.advance_bar(
+            datetime(2026, 8, 30, 10, 0, tzinfo=UTC),
+            minutes=-1.0,
+        )

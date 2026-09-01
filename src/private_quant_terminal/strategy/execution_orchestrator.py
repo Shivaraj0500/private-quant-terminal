@@ -98,6 +98,26 @@ class ExecutionOrchestrator:
 
         self.state_manager.complete()
 
+    def advance_bar(
+        self,
+        timestamp: datetime,
+        *,
+        minutes: float,
+    ) -> StrategyRuntimeState:
+        """Advance runtime state for a new market bar."""
+
+        if self.state is not StrategyExecutionState.RUNNING:
+            raise ValueError(
+                "Strategy execution must be RUNNING to advance a bar."
+            )
+
+        self.runtime_state = self.runtime_state.advance_bar(
+            timestamp,
+            minutes=minutes,
+        )
+
+        return self.runtime_state
+
     @staticmethod
     def _requires_entry_policy(
         actions: tuple[StrategyAction, ...],
