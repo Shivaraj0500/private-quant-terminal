@@ -8,7 +8,19 @@ from private_quant_terminal.strategy.action_processor import (
 )
 from private_quant_terminal.strategy.actions import StrategyAction
 from private_quant_terminal.strategy.execution_state import ExecutionStateManager
+from private_quant_terminal.strategy.risk import (
+    StrategyRiskEvaluator,
+    StrategyRiskResult,
+)
+from private_quant_terminal.strategy.session import StrategySession
+from private_quant_terminal.strategy.session_policy import (
+    SessionPolicyEvaluator,
+)
 from private_quant_terminal.strategy.states import StrategyExecutionState
+from private_quant_terminal.strategy.variables import (
+    SessionContext,
+    StrategyRuntimeContext,
+)
 
 
 @dataclass(frozen=True)
@@ -17,19 +29,30 @@ class ExecutionOrchestrationResult:
 
     action_results: tuple[ActionProcessingResult, ...]
     state: StrategyExecutionState
+    session_allowed: bool = True
+    risk_result: StrategyRiskResult | None = None
+    rejection_reasons: tuple[str, ...] = ()
 
 
 class ExecutionOrchestrator:
-    """Coordinate execution lifecycle and deterministic action processing."""
+    """Coordinate lifecycle, session policy, risk, and action processing."""
 
     def __init__(
         self,
         *,
         state_manager: ExecutionStateManager | None = None,
         action_processor: ActionProcessor | None = None,
+        session_policy: SessionPolicyEvaluator | None = None,
+        risk_evaluator: StrategyRiskEvaluator | None = None,
     ) -> None:
         self.state_manager = state_manager or ExecutionStateManager()
         self.action_processor = action_processor or ActionProcessor()
+        self.session_policy = (
+            session_policy or SessionPolicyEvaluator()
+        )
+        self.risk_evaluator = (
+            risk_evaluator or StrategyRiskEvaluator()
+        )
 
     @property
     def state(self) -> StrategyExecutionState:
@@ -65,12 +88,52 @@ class ExecutionOrchestrator:
     def process(
         self,
         actions: tuple[StrategyAction, ...],
+        *,
+        session: StrategySession | None = None,
+        context: SessionContext | None = None,
+        runtime_context: StrategyRuntimeContext | None = None,
     ) -> ExecutionOrchestrationResult:
-        """Process a deterministic batch of strategy actions."""
+        """Process actions after optional policy validation."""
 
         if self.state is not StrategyExecutionState.RUNNING:
             raise ValueError(
                 "Strategy execution must be RUNNING to process actions."
+            )
+
+        session_allowed = True
+        rejection_reasons: list[str] = []
+        risk_result: StrategyRiskResult | None = None
+
+        if session is not None and context is not None:
+            session_allowed = self.session_policy.entry_allowed(
+                session,
+                context,
+            )
+
+            if not session_allowed:
+                rejection_reasons.append(
+                    "Strategy session policy rejected execution."
+                )
+
+        if session is not None and runtime_context is not None:
+            risk_result = self.risk_evaluator.evaluate(
+                session,
+                runtime_context,
+            )
+
+            if not risk_result.approved:
+                rejection_reasons.extend(risk_result.reasons)
+
+        if not session_allowed or (
+            risk_result is not None
+            and not risk_result.approved
+        ):
+            return ExecutionOrchestrationResult(
+                action_results=(),
+                state=self.state,
+                session_allowed=session_allowed,
+                risk_result=risk_result,
+                rejection_reasons=tuple(rejection_reasons),
             )
 
         results = self.action_processor.process_all(actions)
@@ -78,4 +141,7 @@ class ExecutionOrchestrator:
         return ExecutionOrchestrationResult(
             action_results=results,
             state=self.state,
+            session_allowed=session_allowed,
+            risk_result=risk_result,
+            rejection_reasons=tuple(rejection_reasons),
         )
