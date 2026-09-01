@@ -21,6 +21,7 @@ from private_quant_terminal.research.integrity import (
     ResearchIntegrityStatus,
 )
 from private_quant_terminal.research.performance import (
+    ResearchEvidenceSummary,
     ResearchPerformanceAnalyzer,
     ResearchPerformanceReport,
 )
@@ -43,6 +44,7 @@ from private_quant_terminal.research.service import (
 __all__ = [
     "ResearchAnalysisResult",
     "ResearchEquityPoint",
+    "ResearchEvidenceSummary",
     "ResearchExecutionEvent",
     "ResearchExecutionEventType",
     "ResearchExecutionRequest",

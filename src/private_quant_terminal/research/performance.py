@@ -9,8 +9,18 @@ from private_quant_terminal.portfolio.risk_adjusted import (
     calculate_risk_adjusted_metrics,
 )
 from private_quant_terminal.research.execution import (
+    ResearchExecutionEventType,
     ResearchExecutionResult,
 )
+
+
+@dataclass(frozen=True)
+class ResearchEvidenceSummary:
+    """Immutable summary of the evidence contained in a research result."""
+
+    event_count: int
+    completed_trade_count: int
+    has_open_position: bool
 
 
 @dataclass(frozen=True)
@@ -22,6 +32,7 @@ class ResearchPerformanceReport:
     max_drawdown: float
     max_drawdown_percent: float
     risk_adjusted: object
+    evidence_summary: ResearchEvidenceSummary
 
 
 class ResearchPerformanceAnalyzer:
@@ -58,6 +69,21 @@ class ResearchPerformanceAnalyzer:
             )
         )
 
+        evidence_summary = ResearchEvidenceSummary(
+            event_count=len(execution.events),
+            completed_trade_count=len(execution.trades),
+            has_open_position=(
+                sum(
+                    event.event_type is ResearchExecutionEventType.ENTRY
+                    for event in execution.events
+                )
+                > sum(
+                    event.event_type is ResearchExecutionEventType.EXIT
+                    for event in execution.events
+                )
+            ),
+        )
+
         risk_adjusted = calculate_risk_adjusted_metrics(
             returns,
             max_drawdown=max_drawdown,
@@ -69,6 +95,7 @@ class ResearchPerformanceAnalyzer:
             max_drawdown=max_drawdown,
             max_drawdown_percent=max_drawdown_percent,
             risk_adjusted=risk_adjusted,
+            evidence_summary=evidence_summary,
         )
 
     @staticmethod

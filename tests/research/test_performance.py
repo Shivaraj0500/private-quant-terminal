@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from math import isclose
 
 from private_quant_terminal.research import (
@@ -16,8 +17,8 @@ def make_result() -> ResearchExecutionResult:
         trades=(
             ResearchTrade(
                 symbol="RELIANCE",
-                entry_time=None,  # replace with existing UTC fixture
-                exit_time=None,   # replace with existing UTC fixture
+                entry_time=datetime(2026, 1, 1, tzinfo=UTC),
+                exit_time=datetime(2026, 1, 2, tzinfo=UTC),
                 entry_price=100.0,
                 exit_price=110.0,
                 quantity=10.0,
@@ -27,8 +28,8 @@ def make_result() -> ResearchExecutionResult:
             ),
             ResearchTrade(
                 symbol="RELIANCE",
-                entry_time=None,
-                exit_time=None,
+                entry_time=datetime(2026, 1, 3, tzinfo=UTC),
+                exit_time=datetime(2026, 1, 4, tzinfo=UTC),
                 entry_price=110.0,
                 exit_price=105.0,
                 quantity=10.0,
@@ -46,6 +47,14 @@ def make_result() -> ResearchExecutionResult:
         ),
         final_equity=100046.0,
     )
+
+
+def test_analyzer_returns_evidence_summary() -> None:
+    result = ResearchPerformanceAnalyzer().analyze(make_result())
+
+    assert result.evidence_summary.event_count == 0
+    assert result.evidence_summary.completed_trade_count == 2
+    assert result.evidence_summary.has_open_position is False
 
 
 def test_analyzer_returns_trade_performance() -> None:
