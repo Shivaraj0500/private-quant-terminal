@@ -11,6 +11,7 @@ from private_quant_terminal.strategy.action_processor import (
 )
 from private_quant_terminal.strategy.actions import (
     EnterAction,
+    ExitAction,
     RollAction,
     StrategyAction,
 )
@@ -76,6 +77,7 @@ class ExecutionOrchestrator:
                 current_time=datetime.now(UTC),
             )
         )
+        self.position_context = PositionContext()
 
     @property
     def state(self) -> StrategyExecutionState:
@@ -142,7 +144,7 @@ class ExecutionOrchestrator:
             position=(
                 position
                 if position is not None
-                else PositionContext()
+                else self.position_context
             ),
             session=self.runtime_state.session,
             variables=variables,
@@ -266,6 +268,20 @@ class ExecutionOrchestrator:
                 else datetime.now(UTC)
             )
         )
+
+        for action in actions:
+            if isinstance(action, EnterAction):
+                self.position_context = PositionContext(
+                    quantity=1.0,
+                    entry_timestamp=timestamp,
+                )
+            elif isinstance(action, ExitAction):
+                self.position_context = PositionContext()
+            elif isinstance(action, RollAction):
+                self.position_context = PositionContext(
+                    quantity=1.0,
+                    entry_timestamp=timestamp,
+                )
 
         runtime_state = self.runtime_state
 
