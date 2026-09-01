@@ -10,6 +10,10 @@ from private_quant_terminal.models import Candle
 from private_quant_terminal.persistence import Database
 from private_quant_terminal.research import (
     ResearchAnalysisResult,
+    ResearchIntegrityFinding,
+    ResearchIntegrityReport,
+    ResearchIntegritySeverity,
+    ResearchIntegrityStatus,
     ResearchParameters,
     ResearchRunService,
     ResearchRunStatus,
@@ -328,6 +332,82 @@ def test_execute_run_marks_run_completed(tmp_path) -> None:
     persisted = service._repository.get(run.run_id)
 
     assert persisted.status.value == "COMPLETED"
+
+
+def test_execute_run_marks_run_failed_when_integrity_fails(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    candles = make_candles()
+    strategy_version = make_strategy_version()
+    service = make_service(tmp_path)
+    run = make_run(service, strategy_version, candles)
+
+    failure_report = ResearchIntegrityReport(
+        status=ResearchIntegrityStatus.FAIL,
+        findings=(
+            ResearchIntegrityFinding(
+                severity=ResearchIntegritySeverity.FAIL,
+                code="TEST_INTEGRITY_FAILURE",
+                message="simulated integrity failure",
+            ),
+        ),
+    )
+
+    monkeypatch.setattr(
+        "private_quant_terminal.research.service.ResearchIntegrityAnalyzer.analyze",
+        lambda self, execution: failure_report,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="research execution failed integrity validation",
+    ):
+        service.execute_run(
+            run=run,
+            strategy_version=strategy_version,
+            candles=candles,
+            initial_equity=100000.0,
+        )
+
+    persisted = service._repository.get(run.run_id)
+
+    assert persisted.status is ResearchRunStatus.FAILED
+
+
+def test_execute_run_allows_integrity_warnings(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    candles = make_candles()
+    strategy_version = make_strategy_version()
+    service = make_service(tmp_path)
+    run = make_run(service, strategy_version, candles)
+
+    warning_report = ResearchIntegrityReport(
+        status=ResearchIntegrityStatus.WARN,
+        findings=(
+            ResearchIntegrityFinding(
+                severity=ResearchIntegritySeverity.WARN,
+                code="TEST_INTEGRITY_WARNING",
+                message="simulated integrity warning",
+            ),
+        ),
+    )
+
+    monkeypatch.setattr(
+        "private_quant_terminal.research.service.ResearchIntegrityAnalyzer.analyze",
+        lambda self, execution: warning_report,
+    )
+
+    result = service.execute_run(
+        run=run,
+        strategy_version=strategy_version,
+        candles=candles,
+        initial_equity=100000.0,
+    )
+
+    assert result.run.status is ResearchRunStatus.COMPLETED
 
 
 def test_execute_run_marks_run_failed_when_execution_fails(

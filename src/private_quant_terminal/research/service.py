@@ -12,6 +12,10 @@ from private_quant_terminal.research.execution import (
     ResearchExecutionResult,
 )
 from private_quant_terminal.research.executor import ResearchExecutor
+from private_quant_terminal.research.integrity import (
+    ResearchIntegrityAnalyzer,
+    ResearchIntegrityStatus,
+)
 from private_quant_terminal.research.performance import (
     ResearchPerformanceAnalyzer,
     ResearchPerformanceReport,
@@ -164,6 +168,15 @@ class ResearchRunService:
                     candles=candles,
                 )
             )
+
+            integrity = ResearchIntegrityAnalyzer().analyze(
+                execution
+            )
+
+            if integrity.status is ResearchIntegrityStatus.FAIL:
+                raise ValueError(
+                    "research execution failed integrity validation"
+                )
 
             performance = ResearchPerformanceAnalyzer().analyze(
                 execution
