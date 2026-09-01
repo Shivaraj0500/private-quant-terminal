@@ -17,6 +17,10 @@ from private_quant_terminal.research.integrity import (
     ResearchIntegrityReport,
     ResearchIntegrityStatus,
 )
+from private_quant_terminal.research.intelligence import (
+    ResearchIntelligenceAnalyzer,
+    ResearchIntelligenceReport,
+)
 from private_quant_terminal.research.performance import (
     ResearchPerformanceAnalyzer,
     ResearchPerformanceReport,
@@ -50,6 +54,7 @@ class ResearchAnalysisResult:
     execution: ResearchExecutionResult
     performance: ResearchPerformanceReport
     integrity: ResearchIntegrityReport
+    intelligence: ResearchIntelligenceReport
 
 
 class ResearchRunService:
@@ -183,6 +188,10 @@ class ResearchRunService:
             performance = ResearchPerformanceAnalyzer().analyze(
                 execution
             )
+            intelligence = ResearchIntelligenceAnalyzer().analyze(
+                performance=performance,
+                integrity=integrity,
+            )
 
         except Exception:
             self._repository.update_status(
@@ -210,6 +219,7 @@ class ResearchRunService:
             execution=execution,
             performance=performance,
             integrity=integrity,
+            intelligence=intelligence,
         )
 
 

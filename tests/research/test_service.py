@@ -153,6 +153,8 @@ def test_execute_run_returns_complete_analysis_result(tmp_path) -> None:
     assert result.execution.run_id == run.run_id
     assert len(result.execution.trades) == 1
     assert result.performance.trading_performance.realized_pnl == -7.0
+    assert result.intelligence.conclusion.value == "NEGATIVE_EVIDENCE"
+    assert result.intelligence.confidence.value == "HIGH"
 
 
 def test_execute_run_rejects_strategy_identity_mismatch(tmp_path) -> None:
@@ -408,6 +410,8 @@ def test_execute_run_allows_integrity_warnings(
     )
 
     assert result.run.status is ResearchRunStatus.COMPLETED
+    assert result.intelligence.confidence.value == "MEDIUM"
+    assert "simulated integrity warning" in result.intelligence.limitations
 
 
 def test_execute_run_marks_run_failed_when_execution_fails(

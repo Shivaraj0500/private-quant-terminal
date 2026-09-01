@@ -20,6 +20,12 @@ from private_quant_terminal.research.integrity import (
     ResearchIntegritySeverity,
     ResearchIntegrityStatus,
 )
+from private_quant_terminal.research.intelligence import (
+    ResearchIntelligenceAnalyzer,
+    ResearchIntelligenceConclusion,
+    ResearchIntelligenceConfidence,
+    ResearchIntelligenceReport,
+)
 from private_quant_terminal.research.performance import (
     ResearchEvidenceSummary,
     ResearchPerformanceAnalyzer,
@@ -55,6 +61,10 @@ __all__ = [
     "ResearchIntegrityReport",
     "ResearchIntegritySeverity",
     "ResearchIntegrityStatus",
+    "ResearchIntelligenceAnalyzer",
+    "ResearchIntelligenceConclusion",
+    "ResearchIntelligenceConfidence",
+    "ResearchIntelligenceReport",
     "ResearchParameters",
     "ResearchPerformanceAnalyzer",
     "ResearchPerformanceReport",
