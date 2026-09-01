@@ -73,10 +73,7 @@ def relative_strength_index(
     gains: list[float] = []
     losses: list[float] = []
 
-    for previous, current in zip(
-        recent_values,
-        recent_values[1:],
-    ):
+    for previous, current in pairwise(recent_values):
         change = current - previous
 
         gains.append(max(change, 0))

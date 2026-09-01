@@ -51,6 +51,7 @@ def create_service() -> StubMarketDataService:
             10,
             0,
             0,
+            tzinfo=UTC,
         ),
         last_price=25000.0,
         open=24900.0,
@@ -69,6 +70,7 @@ def create_service() -> StubMarketDataService:
                 9,
                 15,
                 0,
+                tzinfo=UTC,
             ),
             open=24900.0,
             high=25000.0,
@@ -84,6 +86,7 @@ def create_service() -> StubMarketDataService:
                 9,
                 16,
                 0,
+                tzinfo=UTC,
             ),
             open=24950.0,
             high=25100.0,
@@ -120,7 +123,7 @@ def test_get_latest_quote_returns_quote() -> None:
     assert response.json() == {
         "symbol": "NIFTY",
         "exchange": "NSE",
-        "timestamp": "2026-08-28T10:00:00",
+        "timestamp": "2026-08-28T10:00:00Z",
         "last_price": 25000.0,
         "open": 24900.0,
         "high": 25100.0,
@@ -152,7 +155,7 @@ def test_get_candles_returns_all_candles() -> None:
 
     assert response.json() == [
         {
-            "timestamp": "2026-08-28T09:15:00",
+            "timestamp": "2026-08-28T09:15:00Z",
             "open": 24900.0,
             "high": 25000.0,
             "low": 24850.0,
@@ -160,7 +163,7 @@ def test_get_candles_returns_all_candles() -> None:
             "volume": 500000.0,
         },
         {
-            "timestamp": "2026-08-28T09:16:00",
+            "timestamp": "2026-08-28T09:16:00Z",
             "open": 24950.0,
             "high": 25100.0,
             "low": 24900.0,
@@ -194,7 +197,7 @@ def test_get_candles_returns_limited_candles() -> None:
 
     assert response.json() == [
         {
-            "timestamp": "2026-08-28T09:16:00",
+            "timestamp": "2026-08-28T09:16:00Z",
             "open": 24950.0,
             "high": 25100.0,
             "low": 24900.0,

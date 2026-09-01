@@ -1,8 +1,7 @@
 from __future__ import annotations
 
-from itertools import pairwise
-
 from collections.abc import Sequence
+from itertools import pairwise
 
 
 def simple_returns(prices: Sequence[float]) -> tuple[float, ...]:
