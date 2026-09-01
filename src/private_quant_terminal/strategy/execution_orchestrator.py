@@ -129,21 +129,29 @@ class ExecutionOrchestrator:
 
         return self.runtime_state
 
-    def _position_context(self) -> PositionContext:
-        """Build the current position context from processed position groups."""
+    def _open_position_group_count(self) -> int:
+        """Return the number of currently open position groups."""
 
-        snapshots = self.action_processor.snapshots()
-        open_snapshots = tuple(
-            snapshot
-            for snapshot in snapshots
-            if snapshot.state.value in {"OPEN", "PARTIALLY_CLOSED"}
+        return sum(
+            snapshot.state.value in {"OPEN", "PARTIALLY_CLOSED"}
+            for snapshot in self.action_processor.snapshots()
         )
 
-        if not open_snapshots:
+    def _position_context(self) -> PositionContext:
+        """Build runtime position state from processed position groups.
+
+        Quantity represents the number of active position groups. It is not
+        broker fill quantity because fills and executable quantities are not
+        part of the current position-state model.
+        """
+
+        group_count = self._open_position_group_count()
+
+        if group_count == 0:
             return PositionContext()
 
         return PositionContext(
-            quantity=float(len(open_snapshots)),
+            quantity=float(group_count),
             entry_timestamp=self.runtime_state.session.last_entry_time,
         )
 
