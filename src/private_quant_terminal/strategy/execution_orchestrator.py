@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
+from private_quant_terminal.models import Candle
 from private_quant_terminal.strategy.action_processor import (
     ActionProcessingResult,
     ActionProcessor,
@@ -17,6 +19,11 @@ from private_quant_terminal.strategy.risk import (
     StrategyRiskEvaluator,
     StrategyRiskResult,
 )
+from private_quant_terminal.strategy.rule_evaluator import (
+    RuleEvaluationResult,
+    StrategyRuleEvaluator,
+)
+from private_quant_terminal.strategy.rules import StrategyRule
 from private_quant_terminal.strategy.runtime_state import (
     StrategyRuntimeState,
 )
@@ -151,6 +158,47 @@ class ExecutionOrchestrator:
             isinstance(action, (EnterAction, RollAction))
             for action in actions
         )
+
+    def evaluate_and_process(
+        self,
+        rules: Sequence[StrategyRule],
+        candles: Sequence[Candle],
+        index: int,
+        *,
+        position: PositionContext | None = None,
+        variables: tuple[StrategyVariable, ...] = (),
+        session: StrategySession | None = None,
+    ) -> tuple[RuleEvaluationResult, ExecutionOrchestrationResult]:
+        """Evaluate strategy rules and process their resulting actions."""
+
+        runtime_context = self.build_runtime_context(
+            market=MarketContext(
+                timestamp=candles[index].timestamp,
+                open=candles[index].open,
+                high=candles[index].high,
+                low=candles[index].low,
+                close=candles[index].close,
+                volume=candles[index].volume,
+            ),
+            position=position,
+            variables=variables,
+        )
+
+        evaluation = StrategyRuleEvaluator().evaluate(
+            rules,
+            candles,
+            index,
+            runtime_context,
+        )
+
+        result = self.process(
+            evaluation.actions,
+            session=session,
+            context=runtime_context.session,
+            runtime_context=runtime_context,
+        )
+
+        return evaluation, result
 
     def process(
         self,

@@ -639,3 +639,156 @@ def test_build_runtime_context_preserves_custom_variables() -> None:
     )
 
     assert context.resolve("risk_per_trade") == 1.0
+
+
+def test_evaluate_and_process_evaluates_rule_and_processes_actions() -> None:
+    from datetime import UTC, datetime
+
+    from private_quant_terminal.models import Candle
+    from private_quant_terminal.strategy.conditions import (
+        ComparisonOperator,
+        compare,
+    )
+    from private_quant_terminal.strategy.expressions import (
+        ConstantExpression,
+        PriceExpression,
+        PriceField,
+    )
+    from private_quant_terminal.strategy.rules import StrategyRule
+    from private_quant_terminal.strategy.session import StrategySession
+    from private_quant_terminal.strategy.states import SessionMode
+
+    timestamp = datetime(2026, 8, 30, 10, 0, tzinfo=UTC)
+
+    orchestrator = ExecutionOrchestrator()
+    orchestrator.start()
+
+    group = option_group("evaluated-entry")
+
+    rule = StrategyRule(
+        rule_id="entry-rule",
+        name="Entry Rule",
+        condition=compare(
+            PriceExpression(field=PriceField.CLOSE),
+            ComparisonOperator.GREATER_THAN,
+            ConstantExpression(value=100.0),
+        ),
+        actions=(
+            EnterAction(position=group),
+        ),
+        priority=1,
+    )
+
+    candles = (
+        Candle(
+            timestamp=timestamp,
+            open=100.0,
+            high=105.0,
+            low=99.0,
+            close=102.0,
+            volume=1000.0,
+        ),
+    )
+
+    evaluation, result = orchestrator.evaluate_and_process(
+        (rule,),
+        candles,
+        0,
+        session=StrategySession(
+            mode=SessionMode.OVERNIGHT,
+        ),
+    )
+
+    assert len(evaluation.triggered_rules) == 1
+    assert evaluation.triggered_rules[0].rule_id == "entry-rule"
+    assert len(evaluation.actions) == 1
+    assert len(result.action_results) == 1
+    assert orchestrator.runtime_state.session.entries_today == 1
+    assert orchestrator.runtime_state.session.trades_today == 1
+
+
+def test_evaluate_and_process_uses_current_runtime_session() -> None:
+    from datetime import UTC, datetime
+
+    from private_quant_terminal.models import Candle
+    from private_quant_terminal.strategy.variables import SessionContext
+
+    entry_time = datetime(2026, 8, 30, 10, 0, tzinfo=UTC)
+    bar_time = datetime(2026, 8, 30, 10, 5, tzinfo=UTC)
+
+    orchestrator = ExecutionOrchestrator()
+    orchestrator.start()
+
+    group = option_group("runtime-context-entry")
+
+    orchestrator.process(
+        (EnterAction(position=group),),
+        context=SessionContext(
+            current_time=entry_time,
+        ),
+    )
+
+    orchestrator.advance_bar(
+        bar_time,
+        minutes=5.0,
+    )
+
+    candles = (
+        Candle(
+            timestamp=bar_time,
+            open=100.0,
+            high=105.0,
+            low=99.0,
+            close=103.0,
+            volume=1000.0,
+        ),
+    )
+
+    evaluation, result = orchestrator.evaluate_and_process(
+        (),
+        candles,
+        0,
+    )
+
+    assert evaluation.triggered_rules == ()
+    assert evaluation.actions == ()
+    assert result.action_results == ()
+    assert orchestrator.runtime_state.session.entries_today == 1
+    assert orchestrator.runtime_state.session.trades_today == 1
+    assert orchestrator.runtime_state.session.bars_since_entry == 1
+    assert orchestrator.runtime_state.session.minutes_since_entry == 5.0
+
+
+def test_evaluate_and_process_with_no_rules_does_not_mutate_state() -> None:
+    from datetime import UTC, datetime
+
+    from private_quant_terminal.models import Candle
+
+    timestamp = datetime(2026, 8, 30, 10, 0, tzinfo=UTC)
+
+    orchestrator = ExecutionOrchestrator()
+    orchestrator.start()
+
+    before = orchestrator.runtime_state
+
+    candles = (
+        Candle(
+            timestamp=timestamp,
+            open=100.0,
+            high=101.0,
+            low=99.0,
+            close=100.0,
+            volume=1000.0,
+        ),
+    )
+
+    evaluation, result = orchestrator.evaluate_and_process(
+        (),
+        candles,
+        0,
+    )
+
+    assert evaluation.triggered_rules == ()
+    assert evaluation.actions == ()
+    assert result.action_results == ()
+    assert orchestrator.runtime_state.session == before.session
