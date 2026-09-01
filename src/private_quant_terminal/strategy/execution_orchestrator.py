@@ -77,7 +77,6 @@ class ExecutionOrchestrator:
                 current_time=datetime.now(UTC),
             )
         )
-        self.position_context = PositionContext()
 
     @property
     def state(self) -> StrategyExecutionState:
@@ -130,6 +129,24 @@ class ExecutionOrchestrator:
 
         return self.runtime_state
 
+    def _position_context(self) -> PositionContext:
+        """Build the current position context from processed position groups."""
+
+        snapshots = self.action_processor.snapshots()
+        open_snapshots = tuple(
+            snapshot
+            for snapshot in snapshots
+            if snapshot.state.value in {"OPEN", "PARTIALLY_CLOSED"}
+        )
+
+        if not open_snapshots:
+            return PositionContext()
+
+        return PositionContext(
+            quantity=float(len(open_snapshots)),
+            entry_timestamp=self.runtime_state.session.last_entry_time,
+        )
+
     def build_runtime_context(
         self,
         *,
@@ -144,7 +161,7 @@ class ExecutionOrchestrator:
             position=(
                 position
                 if position is not None
-                else self.position_context
+                else self._position_context()
             ),
             session=self.runtime_state.session,
             variables=variables,
