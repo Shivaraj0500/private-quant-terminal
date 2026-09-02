@@ -16,6 +16,7 @@ from private_quant_terminal.strategy.conditions import (
     LogicalOperator,
 )
 from private_quant_terminal.strategy.expressions import (
+    ArithmeticExpression,
     ConstantExpression,
     Expression,
     IndicatorExpression,
@@ -24,6 +25,7 @@ from private_quant_terminal.strategy.expressions import (
     PriceExpression,
     TimeExpression,
     TimeField,
+    UnaryExpression,
     VariableExpression,
 )
 from private_quant_terminal.strategy.indicator_registry import (
@@ -100,6 +102,45 @@ class ExpressionEvaluator:
 
             return self._position(expression, context)
 
+        if isinstance(expression, ArithmeticExpression):
+            left = self.evaluate(
+                expression.left,
+                candles,
+                index,
+                context,
+            )
+            right = self.evaluate(
+                expression.right,
+                candles,
+                index,
+                context,
+            )
+
+            if left is None or right is None:
+                return None
+
+            return self._arithmetic(
+                expression,
+                left,
+                right,
+            )
+
+        if isinstance(expression, UnaryExpression):
+            operand = self.evaluate(
+                expression.operand,
+                candles,
+                index,
+                context,
+            )
+
+            if operand is None:
+                return None
+
+            return self._unary(
+                expression,
+                operand,
+            )
+
         raise TypeError(f"Unsupported expression: {type(expression).__name__}")
 
     @staticmethod
@@ -114,6 +155,49 @@ class ExpressionEvaluator:
                 expression.field,
             ).value_at(index)
         )
+
+    @staticmethod
+    def _arithmetic(
+        expression: ArithmeticExpression,
+        left: object,
+        right: object,
+    ) -> object:
+        if expression.operator == "+":
+            return left + right
+
+        if expression.operator == "-":
+            return left - right
+
+        if expression.operator == "*":
+            return left * right
+
+        if expression.operator == "/":
+            if right == 0:
+                raise ZeroDivisionError("Division by zero in arithmetic expression.")
+            return left / right
+
+        if expression.operator == "%":
+            if right == 0:
+                raise ZeroDivisionError("Modulo by zero in arithmetic expression.")
+            return left % right
+
+        if expression.operator == "**":
+            return left**right
+
+        raise TypeError(f"Unsupported arithmetic operator: {expression.operator}")
+
+    @staticmethod
+    def _unary(
+        expression: UnaryExpression,
+        operand: object,
+    ) -> object:
+        if expression.operator == "abs":
+            return abs(operand)
+
+        if expression.operator == "neg":
+            return -operand
+
+        raise TypeError(f"Unsupported unary operator: {expression.operator}")
 
     @staticmethod
     def _position(

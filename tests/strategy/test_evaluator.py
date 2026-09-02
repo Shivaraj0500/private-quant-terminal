@@ -16,8 +16,12 @@ from private_quant_terminal.strategy.evaluator import (
 from private_quant_terminal.strategy.expressions import (
     PositionField,
     PriceField,
+    absolute,
+    add,
+    arithmetic,
     constant,
     indicator,
+    negate,
     position,
     price,
     variable,
@@ -349,6 +353,141 @@ def test_position_expression() -> None:
         0,
         context,
     ) is True
+
+
+def test_arithmetic_expression_evaluation() -> None:
+    data = candles([100])
+    evaluator = ExpressionEvaluator()
+
+    assert evaluator.evaluate(
+        add(constant(10), constant(3)),
+        data,
+        0,
+    ) == 13
+
+    assert evaluator.evaluate(
+        arithmetic(constant(10), "-", constant(3)),
+        data,
+        0,
+    ) == 7
+
+    assert evaluator.evaluate(
+        arithmetic(constant(10), "*", constant(3)),
+        data,
+        0,
+    ) == 30
+
+    assert evaluator.evaluate(
+        arithmetic(constant(10), "/", constant(4)),
+        data,
+        0,
+    ) == 2.5
+
+    assert evaluator.evaluate(
+        arithmetic(constant(10), "%", constant(3)),
+        data,
+        0,
+    ) == 1
+
+    assert evaluator.evaluate(
+        arithmetic(constant(2), "**", constant(3)),
+        data,
+        0,
+    ) == 8
+
+
+def test_unary_expression_evaluation() -> None:
+    data = candles([100])
+    evaluator = ExpressionEvaluator()
+
+    assert evaluator.evaluate(
+        absolute(constant(-7)),
+        data,
+        0,
+    ) == 7
+
+    assert evaluator.evaluate(
+        negate(constant(7)),
+        data,
+        0,
+    ) == -7
+
+
+def test_nested_arithmetic_expression_evaluation() -> None:
+    data = candles([100])
+    evaluator = ExpressionEvaluator()
+
+    expression = arithmetic(
+        add(constant(10), constant(5)),
+        "*",
+        negate(constant(2)),
+    )
+
+    assert evaluator.evaluate(
+        expression,
+        data,
+        0,
+    ) == -30
+
+
+def test_arithmetic_expression_supports_position_values() -> None:
+    data = candles([105])
+
+    context = StrategyRuntimeContext(
+        market=MarketContext(
+            timestamp=data[0].timestamp,
+            open=105,
+            high=106,
+            low=104,
+            close=105,
+        ),
+        position=PositionContext(
+            quantity=2,
+            entry_price=100,
+            current_price=105,
+            average_price=100,
+            realized_pnl=10,
+            unrealized_pnl=10,
+            entry_timestamp=data[0].timestamp,
+        ),
+    )
+
+    expression = arithmetic(
+        position(PositionField.CURRENT_PRICE),
+        "-",
+        position(PositionField.ENTRY_PRICE),
+    )
+
+    assert ExpressionEvaluator().evaluate(
+        expression,
+        data,
+        0,
+        context,
+    ) == 5
+
+
+def test_arithmetic_expression_rejects_division_by_zero() -> None:
+    with pytest.raises(
+        ZeroDivisionError,
+        match="Division by zero in arithmetic expression",
+    ):
+        ExpressionEvaluator().evaluate(
+            arithmetic(constant(10), "/", constant(0)),
+            candles([100]),
+            0,
+        )
+
+
+def test_arithmetic_expression_rejects_modulo_by_zero() -> None:
+    with pytest.raises(
+        ZeroDivisionError,
+        match="Modulo by zero in arithmetic expression",
+    ):
+        ExpressionEvaluator().evaluate(
+            arithmetic(constant(10), "%", constant(0)),
+            candles([100]),
+            0,
+        )
 
 
 def test_position_expression_requires_context() -> None:
