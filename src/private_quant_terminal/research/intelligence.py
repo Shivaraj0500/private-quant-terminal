@@ -23,6 +23,15 @@ class ResearchIntelligenceConfidence(str, Enum):
 
 
 @dataclass(frozen=True)
+class ResearchEvidenceReference:
+    """Immutable reference to deterministic research evidence."""
+
+    category: str
+    code: str
+    description: str
+
+
+@dataclass(frozen=True)
 class ResearchIntelligenceReport:
     """Immutable evidence-qualified interpretation of a research result."""
 
@@ -31,6 +40,7 @@ class ResearchIntelligenceReport:
     strengths: tuple[str, ...]
     limitations: tuple[str, ...]
     next_investigations: tuple[str, ...]
+    evidence: tuple[ResearchEvidenceReference, ...]
 
 
 class ResearchIntelligenceAnalyzer:
@@ -50,29 +60,85 @@ class ResearchIntelligenceAnalyzer:
         strengths: list[str] = []
         limitations: list[str] = []
         next_investigations: list[str] = []
+        evidence_references: list[ResearchEvidenceReference] = []
 
         if integrity.passed:
             strengths.append("Research execution passed integrity validation.")
+            evidence_references.append(
+                ResearchEvidenceReference(
+                    category="INTEGRITY",
+                    code="INTEGRITY_OK",
+                    description="Research execution passed integrity validation.",
+                )
+            )
 
         if trading.total_pnl > 0:
-            strengths.append("Completed trades produced positive total P&L.")
+            description = "Completed trades produced positive total P&L."
+            strengths.append(description)
+            evidence_references.append(
+                ResearchEvidenceReference(
+                    category="PERFORMANCE",
+                    code="TOTAL_PNL_POSITIVE",
+                    description=description,
+                )
+            )
         elif trading.total_pnl < 0:
-            strengths.append("Completed trades provide measurable negative P&L evidence.")
+            description = "Completed trades provide measurable negative P&L evidence."
+            strengths.append(description)
+            evidence_references.append(
+                ResearchEvidenceReference(
+                    category="PERFORMANCE",
+                    code="TOTAL_PNL_NEGATIVE",
+                    description=description,
+                )
+            )
 
         if trading.profit_factor > 1.0:
-            strengths.append("Gross profit exceeded gross loss.")
+            description = "Gross profit exceeded gross loss."
+            strengths.append(description)
+            evidence_references.append(
+                ResearchEvidenceReference(
+                    category="PERFORMANCE",
+                    code="PROFIT_FACTOR_ABOVE_ONE",
+                    description=description,
+                )
+            )
         elif trading.profit_factor == 1.0:
-            limitations.append("Gross profit and gross loss were equal.")
+            description = "Gross profit and gross loss were equal."
+            limitations.append(description)
+            evidence_references.append(
+                ResearchEvidenceReference(
+                    category="PERFORMANCE",
+                    code="PROFIT_FACTOR_EQUAL_ONE",
+                    description=description,
+                )
+            )
 
         if evidence.has_open_position:
-            limitations.append(
+            description = (
                 "The research result contains an open position, "
                 "so the evidence is not fully closed."
             )
+            limitations.append(description)
+            evidence_references.append(
+                ResearchEvidenceReference(
+                    category="EXECUTION",
+                    code="OPEN_POSITION",
+                    description=description,
+                )
+            )
 
         if evidence.completed_trade_count == 0:
-            limitations.append(
+            description = (
                 "No completed trades are available for performance interpretation."
+            )
+            limitations.append(description)
+            evidence_references.append(
+                ResearchEvidenceReference(
+                    category="PERFORMANCE",
+                    code="NO_COMPLETED_TRADES",
+                    description=description,
+                )
             )
 
         warning_findings = tuple(
@@ -84,6 +150,14 @@ class ResearchIntelligenceAnalyzer:
         if warning_findings:
             limitations.extend(
                 finding.message
+                for finding in warning_findings
+            )
+            evidence_references.extend(
+                ResearchEvidenceReference(
+                    category="INTEGRITY",
+                    code=finding.code,
+                    description=finding.message,
+                )
                 for finding in warning_findings
             )
 
@@ -121,4 +195,5 @@ class ResearchIntelligenceAnalyzer:
             strengths=tuple(strengths),
             limitations=tuple(limitations),
             next_investigations=tuple(next_investigations),
+            evidence=tuple(evidence_references),
         )

@@ -49,12 +49,19 @@ class ResearchEventResponse(BaseModel):
     quantity: float
 
 
+class ResearchEvidenceReferenceResponse(BaseModel):
+    category: str
+    code: str
+    description: str
+
+
 class ResearchIntelligenceResponse(BaseModel):
     conclusion: str
     confidence: str
     strengths: list[str]
     limitations: list[str]
     next_investigations: list[str]
+    evidence: list[ResearchEvidenceReferenceResponse]
 
 
 class ResearchIntegrityFindingResponse(BaseModel):

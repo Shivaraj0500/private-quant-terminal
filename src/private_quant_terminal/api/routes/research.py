@@ -210,13 +210,21 @@ def _persisted_result_response(
             calmar_ratio=performance.get("calmar_ratio", 0.0),
         ),
         intelligence=(
-            {
-                "conclusion": intelligence.conclusion.value,
-                "confidence": intelligence.confidence.value,
-                "strengths": list(intelligence.strengths),
-                "limitations": list(intelligence.limitations),
-                "next_investigations": list(intelligence.next_investigations),
-            }
+            ResearchIntelligenceResponse(
+                conclusion=intelligence.conclusion.value,
+                confidence=intelligence.confidence.value,
+                strengths=list(intelligence.strengths),
+                limitations=list(intelligence.limitations),
+                next_investigations=list(intelligence.next_investigations),
+                evidence=[
+                    {
+                        "category": reference.category,
+                        "code": reference.code,
+                        "description": reference.description,
+                    }
+                    for reference in intelligence.evidence
+                ],
+            )
             if intelligence is not None
             else None
         ),
@@ -305,6 +313,14 @@ def _to_response(result) -> ResearchRunResponse:
                 next_investigations=list(
                     result.intelligence.next_investigations
                 ),
+                evidence=[
+                    {
+                        "category": reference.category,
+                        "code": reference.code,
+                        "description": reference.description,
+                    }
+                    for reference in result.intelligence.evidence
+                ],
             )
             if result.intelligence is not None
             else None

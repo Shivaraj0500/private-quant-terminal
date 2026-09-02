@@ -77,7 +77,18 @@ def test_get_research_run_returns_complete_persisted_evidence() -> None:
 
     assert "execution" in data
     assert "performance" in data
+    assert "intelligence" in data
     assert "integrity" in data
+
+    assert data["intelligence"]["evidence"]
+    intelligence_references = {
+        (item["category"], item["code"])
+        for item in data["intelligence"]["evidence"]
+    }
+
+    assert ("INTEGRITY", "INTEGRITY_OK") not in intelligence_references
+    assert ("EXECUTION", "OPEN_POSITION") in intelligence_references
+    assert ("INTEGRITY", "OPEN_POSITION") in intelligence_references
 
     assert data["integrity"]["status"] == "WARN"
     assert data["integrity"]["passed"] is False

@@ -153,3 +153,51 @@ def test_integrity_warning_produces_medium_confidence() -> None:
     assert report.conclusion is ResearchIntelligenceConclusion.POSITIVE_EVIDENCE
     assert report.confidence is ResearchIntelligenceConfidence.MEDIUM
     assert "Execution contains an integrity warning." in report.limitations
+
+
+def test_positive_evidence_includes_traceable_performance_references() -> None:
+    report = ResearchIntelligenceAnalyzer().analyze(
+        performance=make_performance(
+            total_pnl=100.0,
+            profit_factor=2.0,
+            completed_trade_count=3,
+        ),
+        integrity=make_integrity(),
+    )
+
+    references = {(item.category, item.code) for item in report.evidence}
+
+    assert ("INTEGRITY", "INTEGRITY_OK") in references
+    assert ("PERFORMANCE", "TOTAL_PNL_POSITIVE") in references
+    assert ("PERFORMANCE", "PROFIT_FACTOR_ABOVE_ONE") in references
+
+
+def test_open_position_includes_execution_traceability_reference() -> None:
+    report = ResearchIntelligenceAnalyzer().analyze(
+        performance=make_performance(
+            total_pnl=100.0,
+            profit_factor=2.0,
+            completed_trade_count=3,
+            has_open_position=True,
+        ),
+        integrity=make_integrity(),
+    )
+
+    references = {(item.category, item.code) for item in report.evidence}
+
+    assert ("EXECUTION", "OPEN_POSITION") in references
+
+
+def test_no_completed_trades_includes_insufficient_evidence_reference() -> None:
+    report = ResearchIntelligenceAnalyzer().analyze(
+        performance=make_performance(
+            total_pnl=0.0,
+            profit_factor=0.0,
+            completed_trade_count=0,
+        ),
+        integrity=make_integrity(),
+    )
+
+    references = {(item.category, item.code) for item in report.evidence}
+
+    assert ("PERFORMANCE", "NO_COMPLETED_TRADES") in references

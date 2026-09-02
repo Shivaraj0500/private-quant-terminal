@@ -4,6 +4,7 @@ import pytest
 
 from private_quant_terminal.persistence import Database
 from private_quant_terminal.research import (
+    ResearchEvidenceReference,
     ResearchExecutionEvent,
     ResearchExecutionEventType,
     ResearchExecutionResult,
@@ -111,6 +112,18 @@ def test_save_result_persists_and_restores_integrity(
         strengths=("Positive completed-trade evidence.",),
         limitations=("More out-of-sample validation is needed.",),
         next_investigations=("Test robustness across alternative periods.",),
+        evidence=(
+            ResearchEvidenceReference(
+                category="INTEGRITY",
+                code="INTEGRITY_OK",
+                description="Research execution passed integrity checks.",
+            ),
+            ResearchEvidenceReference(
+                category="PERFORMANCE",
+                code="TOTAL_PNL_POSITIVE",
+                description="Completed trades produced positive total P&L.",
+            ),
+        ),
     )
 
     performance = {

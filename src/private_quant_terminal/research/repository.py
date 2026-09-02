@@ -17,6 +17,7 @@ from private_quant_terminal.research.integrity import (
     ResearchIntegrityStatus,
 )
 from private_quant_terminal.research.intelligence import (
+    ResearchEvidenceReference,
     ResearchIntelligenceConclusion,
     ResearchIntelligenceConfidence,
     ResearchIntelligenceReport,
@@ -33,12 +34,22 @@ def _deserialize_intelligence(
     if payload is None:
         return None
 
+    evidence = tuple(
+        ResearchEvidenceReference(
+            category=item["category"],
+            code=item["code"],
+            description=item["description"],
+        )
+        for item in payload.get("evidence", [])
+    )
+
     return ResearchIntelligenceReport(
         conclusion=ResearchIntelligenceConclusion(payload["conclusion"]),
         confidence=ResearchIntelligenceConfidence(payload["confidence"]),
         strengths=tuple(payload.get("strengths", [])),
         limitations=tuple(payload.get("limitations", [])),
         next_investigations=tuple(payload.get("next_investigations", [])),
+        evidence=evidence,
     )
 
 
