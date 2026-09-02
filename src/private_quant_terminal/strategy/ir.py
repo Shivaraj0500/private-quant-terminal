@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 
+from private_quant_terminal.strategy.data_requirements import DataRequirement
 from private_quant_terminal.strategy.enums import (
     ConditionOperator,
     OrderType,
@@ -89,6 +90,7 @@ class StrategyIR:
     timeframe: StrategyTimeframe
     variables: tuple[StrategyVariable, ...] = ()
     rules: tuple[StrategyRule, ...] = ()
+    data_requirements: tuple[DataRequirement, ...] = ()
     position_groups: tuple[PositionGroup, ...] = ()
     session: StrategySession | None = None
     position_sizing: PositionSizing | None = None
@@ -130,6 +132,9 @@ class StrategyIR:
         rule_ids = tuple(rule.rule_id for rule in self.rules)
         if len(set(rule_ids)) != len(rule_ids):
             raise ValueError("Strategy rule IDs must be unique.")
+
+        if len(set(self.data_requirements)) != len(self.data_requirements):
+            raise ValueError("Strategy data requirements must be unique.")
 
         group_ids = tuple(group.group_id for group in self.position_groups)
         if len(set(group_ids)) != len(group_ids):

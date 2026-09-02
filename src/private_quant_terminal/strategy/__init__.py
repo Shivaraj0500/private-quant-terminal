@@ -6,6 +6,10 @@ from private_quant_terminal.strategy.canonical import (
 from private_quant_terminal.strategy.compatibility import (
     strategy_definition_to_ir,
 )
+from private_quant_terminal.strategy.data_requirements import (
+    DataField,
+    DataRequirement,
+)
 from private_quant_terminal.strategy.enums import (
     ConditionOperator,
     OrderType,
@@ -40,6 +44,8 @@ from private_quant_terminal.strategy.validation import (
 
 __all__ = [
     "ConditionOperator",
+    "DataField",
+    "DataRequirement",
     "ExecutionAssumptions",
     "OrderType",
     "PositionSizing",
