@@ -169,3 +169,152 @@ def test_unknown_variable_is_rejected() -> None:
         match="Unknown strategy runtime variable",
     ):
         context.resolve("does_not_exist")
+
+
+def test_variable_store_resolves_declared_value() -> None:
+    from private_quant_terminal.strategy.variables import (
+        StrategyVariableStore,
+    )
+
+    store = StrategyVariableStore(
+        (
+            StrategyVariable(
+                name="trade_count",
+                variable_type=VariableType.NUMBER,
+                scope=VariableScope.STRATEGY,
+                value=3,
+            ),
+        )
+    )
+
+    assert store.resolve("trade_count") == 3
+
+
+def test_variable_store_updates_value() -> None:
+    from private_quant_terminal.strategy.variables import (
+        StrategyVariableStore,
+    )
+
+    store = StrategyVariableStore(
+        (
+            StrategyVariable(
+                name="trade_count",
+                variable_type=VariableType.NUMBER,
+                scope=VariableScope.STRATEGY,
+                value=3,
+            ),
+        )
+    )
+
+    store.set("trade_count", 4)
+
+    assert store.resolve("trade_count") == 4
+
+
+def test_variable_store_rejects_unknown_variable() -> None:
+    from private_quant_terminal.strategy.variables import (
+        StrategyVariableStore,
+    )
+
+    store = StrategyVariableStore()
+
+    with pytest.raises(
+        KeyError,
+        match="Unknown strategy runtime variable",
+    ):
+        store.set("does_not_exist", 1)
+
+
+def test_variable_store_rejects_duplicate_variables() -> None:
+    from private_quant_terminal.strategy.variables import (
+        StrategyVariableStore,
+    )
+
+    variable = StrategyVariable(
+        name="trade_count",
+        variable_type=VariableType.NUMBER,
+        scope=VariableScope.STRATEGY,
+        value=0,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Strategy variable names must be unique",
+    ):
+        StrategyVariableStore((variable, variable))
+
+
+def test_variable_store_enforces_variable_type() -> None:
+    from private_quant_terminal.strategy.variables import (
+        StrategyVariableStore,
+    )
+
+    store = StrategyVariableStore(
+        (
+            StrategyVariable(
+                name="trade_count",
+                variable_type=VariableType.NUMBER,
+                scope=VariableScope.STRATEGY,
+                value=3,
+            ),
+        )
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="NUMBER variable cannot contain a boolean",
+    ):
+        store.set("trade_count", True)
+
+
+def test_variable_store_snapshot_contains_current_values() -> None:
+    from private_quant_terminal.strategy.variables import (
+        StrategyVariableStore,
+    )
+
+    store = StrategyVariableStore(
+        (
+            StrategyVariable(
+                name="trade_count",
+                variable_type=VariableType.NUMBER,
+                scope=VariableScope.STRATEGY,
+                value=3,
+            ),
+        )
+    )
+
+    store.set("trade_count", 7)
+
+    snapshot = store.snapshot()
+
+    assert len(snapshot) == 1
+    assert snapshot[0].name == "trade_count"
+    assert snapshot[0].value == 7
+
+
+def test_runtime_context_resolves_variable_store_value() -> None:
+    from private_quant_terminal.strategy.variables import (
+        StrategyVariableStore,
+    )
+
+    store = StrategyVariableStore(
+        (
+            StrategyVariable(
+                name="trade_count",
+                variable_type=VariableType.NUMBER,
+                scope=VariableScope.STRATEGY,
+                value=3,
+            ),
+        )
+    )
+
+    context = StrategyRuntimeContext(
+        market=market(),
+        variable_store=store,
+    )
+
+    assert context.resolve("trade_count") == 3
+
+    store.set("trade_count", 7)
+
+    assert context.resolve("trade_count") == 7

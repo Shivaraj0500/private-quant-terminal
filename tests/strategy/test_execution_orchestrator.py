@@ -1003,3 +1003,51 @@ def test_build_runtime_context_counts_hedge_as_open_position_group() -> None:
     assert context.position.quantity == 2.0
     assert context.position.entry_timestamp == timestamp
     assert context.is_position_open is True
+
+
+def test_orchestrator_persists_variable_values_across_runtime_contexts() -> None:
+    from datetime import UTC, datetime
+
+    from private_quant_terminal.strategy.variables import (
+        MarketContext,
+        StrategyVariable,
+        VariableScope,
+        VariableType,
+    )
+
+    variable = StrategyVariable(
+        name="roll_count",
+        variable_type=VariableType.NUMBER,
+        scope=VariableScope.STRATEGY,
+        value=0,
+    )
+
+    orchestrator = ExecutionOrchestrator(
+        variables=(variable,),
+    )
+
+    first_context = orchestrator.build_runtime_context(
+        market=MarketContext(
+            timestamp=datetime(2026, 8, 30, 10, 0, tzinfo=UTC),
+            open=100.0,
+            high=105.0,
+            low=99.0,
+            close=103.0,
+        ),
+    )
+
+    assert first_context.resolve("roll_count") == 0
+
+    orchestrator.variable_store.set("roll_count", 1)
+
+    second_context = orchestrator.build_runtime_context(
+        market=MarketContext(
+            timestamp=datetime(2026, 8, 30, 10, 5, tzinfo=UTC),
+            open=103.0,
+            high=106.0,
+            low=102.0,
+            close=105.0,
+        ),
+    )
+
+    assert second_context.resolve("roll_count") == 1

@@ -39,6 +39,7 @@ from private_quant_terminal.strategy.variables import (
     SessionContext,
     StrategyRuntimeContext,
     StrategyVariable,
+    StrategyVariableStore,
 )
 
 
@@ -63,6 +64,7 @@ class ExecutionOrchestrator:
         action_processor: ActionProcessor | None = None,
         session_policy: SessionPolicyEvaluator | None = None,
         risk_evaluator: StrategyRiskEvaluator | None = None,
+        variables: tuple[StrategyVariable, ...] = (),
     ) -> None:
         self.state_manager = state_manager or ExecutionStateManager()
         self.action_processor = action_processor or ActionProcessor()
@@ -77,6 +79,7 @@ class ExecutionOrchestrator:
                 current_time=datetime.now(UTC),
             )
         )
+        self.variable_store = StrategyVariableStore(variables)
 
     @property
     def state(self) -> StrategyExecutionState:
@@ -173,6 +176,7 @@ class ExecutionOrchestrator:
             ),
             session=self.runtime_state.session,
             variables=variables,
+            variable_store=self.variable_store,
         )
 
     @staticmethod

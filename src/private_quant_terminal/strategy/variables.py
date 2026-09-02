@@ -97,6 +97,66 @@ class StrategyVariable:
                 )
 
 
+class StrategyVariableStore:
+    """Mutable runtime values for declared strategy variables."""
+
+    def __init__(
+        self,
+        variables: tuple[StrategyVariable, ...] = (),
+    ) -> None:
+        self._variables: dict[str, StrategyVariable] = {}
+
+        for variable in variables:
+            key = variable.name.lower()
+
+            if key in self._variables:
+                raise ValueError(
+                    f"Strategy variable names must be unique: "
+                    f"{variable.name}."
+                )
+
+            self._variables[key] = variable
+
+    def resolve(self, name: str) -> object | None:
+        """Return the current value of a declared variable."""
+
+        normalized = name.strip().lower()
+
+        if normalized not in self._variables:
+            raise KeyError(
+                f"Unknown strategy runtime variable: {name}"
+            )
+
+        return self._variables[normalized].value
+
+    def set(self, name: str, value: object | None) -> None:
+        """Update the current value of a declared variable."""
+
+        normalized = name.strip().lower()
+
+        if normalized not in self._variables:
+            raise KeyError(
+                f"Unknown strategy runtime variable: {name}"
+            )
+
+        variable = self._variables[normalized]
+
+        updated = StrategyVariable(
+            name=variable.name,
+            variable_type=variable.variable_type,
+            scope=variable.scope,
+            value=value,
+            description=variable.description,
+        )
+
+        self._variables[normalized] = updated
+
+    def snapshot(self) -> tuple[StrategyVariable, ...]:
+        """Return an immutable snapshot of current variable values."""
+
+        return tuple(self._variables.values())
+
+
 @dataclass(frozen=True)
 class MarketContext:
     """Market data available to strategy expressions."""
@@ -186,6 +246,7 @@ class StrategyRuntimeContext:
     session: SessionContext | None = None
 
     variables: tuple[StrategyVariable, ...] = ()
+    variable_store: StrategyVariableStore | None = None
 
     @property
     def is_position_open(self) -> bool:
@@ -247,6 +308,12 @@ class StrategyRuntimeContext:
 
         if normalized in builtins:
             return builtins[normalized]
+
+        if self.variable_store is not None:
+            try:
+                return self.variable_store.resolve(normalized)
+            except KeyError:
+                pass
 
         for variable in self.variables:
             if variable.name.lower() == normalized:
