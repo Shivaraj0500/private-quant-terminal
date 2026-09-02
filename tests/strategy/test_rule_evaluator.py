@@ -5,7 +5,7 @@ import pytest
 from private_quant_terminal.models import Candle
 from private_quant_terminal.strategy.actions import EnterAction
 from private_quant_terminal.strategy.conditions import compare
-from private_quant_terminal.strategy.expressions import constant, price
+from private_quant_terminal.strategy.expressions import add, constant, price, variable
 from private_quant_terminal.strategy.options import (
     OptionQuantity,
     OptionSelector,
@@ -24,7 +24,16 @@ from private_quant_terminal.strategy.rule_evaluator import (
     TriggeredRule,
 )
 from private_quant_terminal.strategy.rules import StrategyRule
-from private_quant_terminal.strategy.variables import VariableMutation
+from private_quant_terminal.strategy.variables import (
+    StrategyRuntimeContext,
+    VariableAssignment,
+    StrategyVariableStore,
+    VariableMutation,
+    MarketContext,
+    StrategyVariable,
+    VariableScope,
+    VariableType,
+)
 
 
 def candles(count: int = 60) -> list[Candle]:
@@ -84,6 +93,131 @@ def make_rule(
         priority=priority,
     )
 
+
+
+def test_evaluator_evaluates_variable_assignments_into_mutations() -> None:
+    variable_definition = StrategyVariable(
+        name="roll_count",
+        variable_type=VariableType.NUMBER,
+        scope=VariableScope.STRATEGY,
+        value=0,
+    )
+
+    rule = StrategyRule(
+        rule_id="assign-roll-count",
+        name="Increment roll count",
+        condition=compare(
+            price("close"),
+            ">",
+            constant(100),
+        ),
+        variable_assignments=(
+            VariableAssignment(
+                name="roll_count",
+                value=add(variable("roll_count"), constant(1)),
+            ),
+        ),
+    )
+
+    store = StrategyVariableStore(
+        variables=(variable_definition,),
+    )
+
+    context = StrategyRuntimeContext(
+        market=MarketContext(
+            timestamp=candles()[0].timestamp,
+            open=100.0,
+            high=101.0,
+            low=99.0,
+            close=100.0,
+            volume=1000.0,
+        ),
+        variable_store=store,
+    )
+
+    result = StrategyRuleEvaluator().evaluate(
+        (rule,),
+        candles(),
+        index=len(candles()) - 1,
+        context=context,
+    )
+
+    assert result.variable_mutations == (
+        VariableMutation(name="roll_count", value=1),
+    )
+
+
+def test_evaluator_preserves_priority_order_for_assignment_mutations() -> None:
+    high_priority = StrategyRule(
+        rule_id="high",
+        name="High",
+        condition=compare(
+            price("close"),
+            ">",
+            constant(100),
+        ),
+        variable_assignments=(
+            VariableAssignment(
+                name="high_value",
+                value=constant(2),
+            ),
+        ),
+        priority=20,
+    )
+
+    low_priority = StrategyRule(
+        rule_id="low",
+        name="Low",
+        condition=compare(
+            price("close"),
+            ">",
+            constant(100),
+        ),
+        variable_assignments=(
+            VariableAssignment(
+                name="low_value",
+                value=constant(1),
+            ),
+        ),
+        priority=10,
+    )
+
+    result = StrategyRuleEvaluator().evaluate(
+        (low_priority, high_priority),
+        candles(),
+        index=len(candles()) - 1,
+    )
+
+    assert result.variable_mutations == (
+        VariableMutation(name="high_value", value=2),
+        VariableMutation(name="low_value", value=1),
+    )
+
+
+def test_evaluator_does_not_evaluate_assignments_for_false_rules() -> None:
+    rule = StrategyRule(
+        rule_id="false-assignment",
+        name="False assignment",
+        condition=compare(
+            price("close"),
+            ">",
+            constant(10_000),
+        ),
+        variable_assignments=(
+            VariableAssignment(
+                name="roll_count",
+                value=constant(99),
+            ),
+        ),
+    )
+
+    result = StrategyRuleEvaluator().evaluate(
+        (rule,),
+        candles(),
+        index=len(candles()) - 1,
+    )
+
+    assert result.variable_mutations == ()
 
 def test_evaluator_returns_triggered_rules() -> None:
     rules = (make_rule("entry", priority=10, threshold=100),)

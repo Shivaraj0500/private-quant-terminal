@@ -5,7 +5,10 @@ from dataclasses import dataclass
 
 from private_quant_terminal.models import Candle
 from private_quant_terminal.strategy.actions import StrategyAction
-from private_quant_terminal.strategy.evaluator import ConditionEvaluator
+from private_quant_terminal.strategy.evaluator import (
+    ConditionEvaluator,
+    ExpressionEvaluator,
+)
 from private_quant_terminal.strategy.rules import StrategyRule
 from private_quant_terminal.strategy.variables import (
     StrategyRuntimeContext,
@@ -55,9 +58,17 @@ class StrategyRuleEvaluator:
     def __init__(
         self,
         condition_evaluator: ConditionEvaluator | None = None,
+        expression_evaluator: ExpressionEvaluator | None = None,
     ) -> None:
         self._conditions = (
-            condition_evaluator if condition_evaluator is not None else ConditionEvaluator()
+            condition_evaluator
+            if condition_evaluator is not None
+            else ConditionEvaluator()
+        )
+        self._expressions = (
+            expression_evaluator
+            if expression_evaluator is not None
+            else ExpressionEvaluator()
         )
 
     def evaluate(
@@ -102,11 +113,24 @@ class StrategyRuleEvaluator:
                 index,
                 context,
             ):
+                assignment_mutations = tuple(
+                    self._expressions.evaluate_assignment(
+                        assignment,
+                        candles,
+                        index,
+                        context,
+                    )
+                    for assignment in rule.variable_assignments
+                )
+
                 triggered.append(
                     TriggeredRule(
                         rule_id=rule.rule_id,
                         actions=rule.actions,
-                        variable_mutations=rule.variable_mutations,
+                        variable_mutations=(
+                            *rule.variable_mutations,
+                            *assignment_mutations,
+                        ),
                     )
                 )
 

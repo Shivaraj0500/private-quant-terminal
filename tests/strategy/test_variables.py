@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 
 import pytest
 
+from private_quant_terminal.strategy.expressions import constant
 from private_quant_terminal.strategy.variables import (
     MarketContext,
     PositionContext,
@@ -9,6 +10,7 @@ from private_quant_terminal.strategy.variables import (
     StrategyRuntimeContext,
     StrategyVariable,
     StrategyVariableStore,
+    VariableAssignment,
     VariableMutation,
     VariableScope,
     VariableType,
@@ -368,3 +370,24 @@ def test_variable_mutation_requires_mutation_object() -> None:
 
     with pytest.raises(TypeError, match="VariableMutation"):
         store.apply("roll_count")  # type: ignore[arg-type]
+
+
+def test_variable_assignment_stores_expression() -> None:
+    assignment = VariableAssignment(
+        name=" roll_count ",
+        value=constant(1),
+    )
+
+    assert assignment.name == "roll_count"
+    assert assignment.value == constant(1)
+
+
+def test_variable_assignment_requires_name() -> None:
+    with pytest.raises(
+        ValueError,
+        match="Variable assignment name must not be empty",
+    ):
+        VariableAssignment(
+            name="   ",
+            value=constant(1),
+        )

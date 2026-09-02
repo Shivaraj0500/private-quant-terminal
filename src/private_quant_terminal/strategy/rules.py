@@ -4,7 +4,10 @@ from dataclasses import dataclass
 
 from private_quant_terminal.strategy.actions import StrategyAction
 from private_quant_terminal.strategy.conditions import Condition
-from private_quant_terminal.strategy.variables import VariableMutation
+from private_quant_terminal.strategy.variables import (
+    VariableAssignment,
+    VariableMutation,
+)
 
 
 @dataclass(frozen=True)
@@ -16,6 +19,7 @@ class StrategyRule:
     condition: Condition
     actions: tuple[StrategyAction, ...] = ()
     variable_mutations: tuple[VariableMutation, ...] = ()
+    variable_assignments: tuple[VariableAssignment, ...] = ()
     priority: int = 0
     enabled: bool = True
     states: tuple[str, ...] = ()
@@ -27,9 +31,13 @@ class StrategyRule:
         if not self.name.strip():
             raise ValueError("Rule name must not be empty.")
 
-        if not self.actions and not self.variable_mutations:
+        if (
+            not self.actions
+            and not self.variable_mutations
+            and not self.variable_assignments
+        ):
             raise ValueError(
-                "Strategy rule must contain at least one action or variable mutation."
+                "Strategy rule must contain at least one action, variable mutation, or variable assignment."
             )
 
         mutation_names = tuple(
@@ -40,6 +48,16 @@ class StrategyRule:
         if len(set(mutation_names)) != len(mutation_names):
             raise ValueError(
                 "Strategy rule variable mutations must target unique variables."
+            )
+
+        assignment_names = tuple(
+            assignment.name.lower()
+            for assignment in self.variable_assignments
+        )
+
+        if len(set(assignment_names)) != len(assignment_names):
+            raise ValueError(
+                "Strategy rule variable assignments must target unique variables."
             )
 
         if self.priority < 0:

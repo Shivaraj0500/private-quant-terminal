@@ -4,6 +4,8 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 
+from private_quant_terminal.strategy.expressions import Expression
+
 
 class VariableScope(str, Enum):
     """Scope in which a strategy variable is resolved."""
@@ -95,6 +97,23 @@ class StrategyVariable:
                 raise ValueError(
                     "DATETIME variable requires a datetime value."
                 )
+
+
+@dataclass(frozen=True)
+class VariableAssignment:
+    """Declarative assignment of an evaluated expression to a strategy variable."""
+
+    name: str
+    value: Expression
+
+    def __post_init__(self) -> None:
+        name = self.name.strip()
+
+        if not name:
+            raise ValueError("Variable assignment name must not be empty.")
+
+        object.__setattr__(self, "name", name)
+
 
 
 @dataclass(frozen=True)

@@ -36,6 +36,8 @@ from private_quant_terminal.strategy.indicators import (
 )
 from private_quant_terminal.strategy.variables import (
     StrategyRuntimeContext,
+    VariableAssignment,
+    VariableMutation,
 )
 
 
@@ -142,6 +144,27 @@ class ExpressionEvaluator:
             )
 
         raise TypeError(f"Unsupported expression: {type(expression).__name__}")
+
+    def evaluate_assignment(
+        self,
+        assignment: VariableAssignment,
+        candles: Sequence[Candle],
+        index: int,
+        context: StrategyRuntimeContext | None = None,
+    ) -> VariableMutation:
+        """Evaluate a declarative variable assignment into a concrete mutation."""
+
+        value = self.evaluate(
+            assignment.value,
+            candles,
+            index,
+            context,
+        )
+
+        return VariableMutation(
+            name=assignment.name,
+            value=value,
+        )
 
     @staticmethod
     def _price(

@@ -30,6 +30,8 @@ from private_quant_terminal.strategy.variables import (
     MarketContext,
     PositionContext,
     StrategyRuntimeContext,
+    VariableAssignment,
+    VariableMutation,
     StrategyVariable,
     VariableScope,
     VariableType,
@@ -396,6 +398,40 @@ def test_arithmetic_expression_evaluation() -> None:
     ) == 8
 
 
+def test_arithmetic_expression_evaluation_uses_strategy_variable() -> None:
+    data = candles([100])
+
+    context = StrategyRuntimeContext(
+        market=MarketContext(
+            timestamp=data[0].timestamp,
+            open=100,
+            high=101,
+            low=99,
+            close=100,
+        ),
+        variables=(
+            StrategyVariable(
+                name="roll_count",
+                variable_type=VariableType.NUMBER,
+                scope=VariableScope.STRATEGY,
+                value=0,
+            ),
+        ),
+    )
+
+    expression = add(
+        variable("roll_count"),
+        constant(1),
+    )
+
+    assert ExpressionEvaluator().evaluate(
+        expression,
+        data,
+        0,
+        context,
+    ) == 1
+
+
 def test_unary_expression_evaluation() -> None:
     data = candles([100])
     evaluator = ExpressionEvaluator()
@@ -494,6 +530,86 @@ def test_position_expression_requires_context() -> None:
     with pytest.raises(ValueError, match="Runtime context is required"):
         ExpressionEvaluator().evaluate(
             position(PositionField.QUANTITY),
+            candles([100]),
+            0,
+        )
+
+
+def test_variable_assignment_evaluates_to_concrete_mutation() -> None:
+    data = candles([100])
+
+    context = StrategyRuntimeContext(
+        market=MarketContext(
+            timestamp=data[0].timestamp,
+            open=100,
+            high=101,
+            low=99,
+            close=100,
+        ),
+        variables=(
+            StrategyVariable(
+                name="roll_count",
+                variable_type=VariableType.NUMBER,
+                scope=VariableScope.STRATEGY,
+                value=0,
+            ),
+        ),
+    )
+
+    assignment = VariableAssignment(
+        name="roll_count",
+        value=add(
+            variable("roll_count"),
+            constant(1),
+        ),
+    )
+
+    mutation = ExpressionEvaluator().evaluate_assignment(
+        assignment,
+        data,
+        0,
+        context,
+    )
+
+    assert mutation == VariableMutation(
+        name="roll_count",
+        value=1,
+    )
+
+
+def test_variable_assignment_evaluates_literal_expression() -> None:
+    assignment = VariableAssignment(
+        name="roll_count",
+        value=constant(5),
+    )
+
+    mutation = ExpressionEvaluator().evaluate_assignment(
+        assignment,
+        candles([100]),
+        0,
+    )
+
+    assert mutation == VariableMutation(
+        name="roll_count",
+        value=5,
+    )
+
+
+def test_variable_assignment_requires_context_for_variable_expression() -> None:
+    assignment = VariableAssignment(
+        name="roll_count",
+        value=add(
+            variable("roll_count"),
+            constant(1),
+        ),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Runtime context is required for variable expressions",
+    ):
+        ExpressionEvaluator().evaluate_assignment(
+            assignment,
             candles([100]),
             0,
         )
