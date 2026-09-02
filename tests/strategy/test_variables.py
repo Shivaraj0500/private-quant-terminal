@@ -8,6 +8,8 @@ from private_quant_terminal.strategy.variables import (
     SessionContext,
     StrategyRuntimeContext,
     StrategyVariable,
+    StrategyVariableStore,
+    VariableMutation,
     VariableScope,
     VariableType,
 )
@@ -292,7 +294,7 @@ def test_variable_store_snapshot_contains_current_values() -> None:
     assert snapshot[0].value == 7
 
 
-def test_runtime_context_resolves_variable_store_value() -> None:
+def test_runtime_context_snapshots_variable_store_value() -> None:
     from private_quant_terminal.strategy.variables import (
         StrategyVariableStore,
     )
@@ -317,4 +319,52 @@ def test_runtime_context_resolves_variable_store_value() -> None:
 
     store.set("trade_count", 7)
 
-    assert context.resolve("trade_count") == 7
+    assert context.resolve("trade_count") == 3
+
+    next_context = StrategyRuntimeContext(
+        market=market(),
+        variable_store=store,
+    )
+
+    assert next_context.resolve("trade_count") == 7
+
+
+def test_variable_mutation_updates_store() -> None:
+    variable = StrategyVariable(
+        name="roll_count",
+        variable_type=VariableType.NUMBER,
+        scope=VariableScope.STRATEGY,
+        value=0,
+    )
+    store = StrategyVariableStore((variable,))
+
+    store.apply(VariableMutation(name="roll_count", value=1))
+
+    assert store.resolve("roll_count") == 1
+
+
+def test_variable_mutation_preserves_type_validation() -> None:
+    variable = StrategyVariable(
+        name="roll_count",
+        variable_type=VariableType.NUMBER,
+        scope=VariableScope.STRATEGY,
+        value=0,
+    )
+    store = StrategyVariableStore((variable,))
+
+    with pytest.raises(ValueError, match="NUMBER variable requires"):
+        store.apply(VariableMutation(name="roll_count", value="invalid"))
+
+
+def test_variable_mutation_rejects_unknown_variable() -> None:
+    store = StrategyVariableStore()
+
+    with pytest.raises(KeyError, match="Unknown strategy runtime variable"):
+        store.apply(VariableMutation(name="roll_count", value=1))
+
+
+def test_variable_mutation_requires_mutation_object() -> None:
+    store = StrategyVariableStore()
+
+    with pytest.raises(TypeError, match="VariableMutation"):
+        store.apply("roll_count")  # type: ignore[arg-type]

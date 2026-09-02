@@ -97,6 +97,22 @@ class StrategyVariable:
                 )
 
 
+@dataclass(frozen=True)
+class VariableMutation:
+    """Deterministic update to a declared strategy runtime variable."""
+
+    name: str
+    value: object | None
+
+    def __post_init__(self) -> None:
+        name = self.name.strip()
+
+        if not name:
+            raise ValueError("Variable mutation name must not be empty.")
+
+        object.__setattr__(self, "name", name)
+
+
 class StrategyVariableStore:
     """Mutable runtime values for declared strategy variables."""
 
@@ -156,6 +172,13 @@ class StrategyVariableStore:
 
         return tuple(self._variables.values())
 
+    def apply(self, mutation: VariableMutation) -> None:
+        """Apply one deterministic variable mutation."""
+
+        if not isinstance(mutation, VariableMutation):
+            raise TypeError("mutation must be a VariableMutation.")
+
+        self.set(mutation.name, mutation.value)
 
 @dataclass(frozen=True)
 class MarketContext:
@@ -248,6 +271,21 @@ class StrategyRuntimeContext:
     variables: tuple[StrategyVariable, ...] = ()
     variable_store: StrategyVariableStore | None = None
 
+    def __post_init__(self) -> None:
+        if self.variable_store is None:
+            return
+
+        store_variables = self.variable_store.snapshot()
+        store_names = {variable.name.lower() for variable in store_variables}
+
+        merged = tuple(
+            variable
+            for variable in self.variables
+            if variable.name.lower() not in store_names
+        ) + store_variables
+
+        object.__setattr__(self, "variables", merged)
+
     @property
     def is_position_open(self) -> bool:
         return self.position.quantity != 0.0
@@ -308,12 +346,6 @@ class StrategyRuntimeContext:
 
         if normalized in builtins:
             return builtins[normalized]
-
-        if self.variable_store is not None:
-            try:
-                return self.variable_store.resolve(normalized)
-            except KeyError:
-                pass
 
         for variable in self.variables:
             if variable.name.lower() == normalized:
