@@ -178,7 +178,49 @@ def test_strategy_ir_contains_canonical_v2_fields() -> None:
     assert len(strategy.rules) == 1
     assert len(strategy.position_groups) == 1
     assert strategy.session is None
+    assert strategy.position_sizing is None
+    assert strategy.stop_loss is None
+    assert strategy.take_profit is None
     assert strategy.execution == ExecutionAssumptions()
+
+
+def test_strategy_ir_preserves_management_semantics() -> None:
+    position_sizing = PositionSizing(
+        method=PositionSizingMethod.PERCENT_OF_EQUITY,
+        value=10.0,
+    )
+    stop_loss = StopLoss(
+        type=StopLossType.PERCENT,
+        value=2.0,
+    )
+    take_profit = TakeProfit(
+        type=TakeProfitType.RISK_REWARD,
+        value=2.0,
+    )
+    execution = ExecutionAssumptions(
+        order_type=OrderType.MARKET,
+        slippage_bps=5.0,
+        transaction_cost_bps=10.0,
+    )
+
+    strategy = StrategyIR(
+        strategy_id="strategy-management",
+        name="Management Test",
+        description="Verify V1 management semantics are retained.",
+        version=1,
+        status=StrategyStatus.DRAFT,
+        instruments=("RELIANCE",),
+        timeframe=StrategyTimeframe.ONE_HOUR,
+        position_sizing=position_sizing,
+        stop_loss=stop_loss,
+        take_profit=take_profit,
+        execution=execution,
+    )
+
+    assert strategy.position_sizing == position_sizing
+    assert strategy.stop_loss == stop_loss
+    assert strategy.take_profit == take_profit
+    assert strategy.execution == execution
 
 
 def test_strategy_ir_is_immutable() -> None:

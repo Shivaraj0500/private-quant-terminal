@@ -91,6 +91,9 @@ class StrategyIR:
     rules: tuple[StrategyRule, ...] = ()
     position_groups: tuple[PositionGroup, ...] = ()
     session: StrategySession | None = None
+    position_sizing: PositionSizing | None = None
+    stop_loss: StopLoss | None = None
+    take_profit: TakeProfit | None = None
     execution: ExecutionAssumptions = ExecutionAssumptions()
 
     def __post_init__(self) -> None:
