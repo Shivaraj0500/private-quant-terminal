@@ -19,6 +19,8 @@ from private_quant_terminal.strategy.expressions import (
     ConstantExpression,
     Expression,
     IndicatorExpression,
+    PositionExpression,
+    PositionField,
     PriceExpression,
     TimeExpression,
     TimeField,
@@ -92,6 +94,12 @@ class ExpressionEvaluator:
 
             return context.resolve(expression.name)
 
+        if isinstance(expression, PositionExpression):
+            if context is None:
+                raise ValueError("Runtime context is required for position expressions.")
+
+            return self._position(expression, context)
+
         raise TypeError(f"Unsupported expression: {type(expression).__name__}")
 
     @staticmethod
@@ -106,6 +114,39 @@ class ExpressionEvaluator:
                 expression.field,
             ).value_at(index)
         )
+
+    @staticmethod
+    def _position(
+        expression: PositionExpression,
+        context: StrategyRuntimeContext,
+    ) -> object:
+        position = context.position
+
+        if expression.field is PositionField.QUANTITY:
+            return position.quantity
+
+        if expression.field is PositionField.ENTRY_PRICE:
+            return position.entry_price
+
+        if expression.field is PositionField.CURRENT_PRICE:
+            return context.current_price
+
+        if expression.field is PositionField.AVERAGE_PRICE:
+            return position.average_price
+
+        if expression.field is PositionField.REALIZED_PNL:
+            return position.realized_pnl
+
+        if expression.field is PositionField.UNREALIZED_PNL:
+            return position.unrealized_pnl
+
+        if expression.field is PositionField.UNREALIZED_PNL_PERCENT:
+            return position.unrealized_pnl_percent
+
+        if expression.field is PositionField.OPEN:
+            return context.is_position_open
+
+        raise TypeError(f"Unsupported position field: {expression.field}")
 
     @staticmethod
     def _time(

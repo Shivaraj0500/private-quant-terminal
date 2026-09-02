@@ -14,14 +14,17 @@ from private_quant_terminal.strategy.evaluator import (
     ExpressionEvaluator,
 )
 from private_quant_terminal.strategy.expressions import (
+    PositionField,
     PriceField,
     constant,
     indicator,
+    position,
     price,
     variable,
 )
 from private_quant_terminal.strategy.variables import (
     MarketContext,
+    PositionContext,
     StrategyRuntimeContext,
     StrategyVariable,
     VariableScope,
@@ -265,6 +268,96 @@ def test_variable_expression() -> None:
         0,
         context,
     ) is True
+
+
+def test_position_expression() -> None:
+    data = candles([105])
+
+    context = StrategyRuntimeContext(
+        market=MarketContext(
+            timestamp=data[0].timestamp,
+            open=105,
+            high=106,
+            low=104,
+            close=105,
+        ),
+        position=PositionContext(
+            quantity=2,
+            entry_price=100,
+            current_price=105,
+            average_price=100,
+            realized_pnl=10,
+            unrealized_pnl=10,
+            entry_timestamp=data[0].timestamp,
+        ),
+    )
+
+    evaluator = ExpressionEvaluator()
+
+    assert evaluator.evaluate(
+        position(PositionField.QUANTITY),
+        data,
+        0,
+        context,
+    ) == 2
+
+    assert evaluator.evaluate(
+        position(PositionField.ENTRY_PRICE),
+        data,
+        0,
+        context,
+    ) == 100
+
+    assert evaluator.evaluate(
+        position(PositionField.CURRENT_PRICE),
+        data,
+        0,
+        context,
+    ) == 105
+
+    assert evaluator.evaluate(
+        position(PositionField.AVERAGE_PRICE),
+        data,
+        0,
+        context,
+    ) == 100
+
+    assert evaluator.evaluate(
+        position(PositionField.REALIZED_PNL),
+        data,
+        0,
+        context,
+    ) == 10
+
+    assert evaluator.evaluate(
+        position(PositionField.UNREALIZED_PNL),
+        data,
+        0,
+        context,
+    ) == 10
+
+    assert evaluator.evaluate(
+        position(PositionField.UNREALIZED_PNL_PERCENT),
+        data,
+        0,
+        context,
+    ) == 5.0
+
+    assert evaluator.evaluate(
+        position(PositionField.OPEN),
+        data,
+        0,
+        context,
+    ) is True
+
+
+def test_position_expression_requires_context() -> None:
+    with pytest.raises(ValueError, match="Runtime context is required"):
+        ExpressionEvaluator().evaluate(
+            position(PositionField.QUANTITY),
+            candles([100]),
+            0,
+        )
 
 
 def test_unknown_expression_type_fails() -> None:

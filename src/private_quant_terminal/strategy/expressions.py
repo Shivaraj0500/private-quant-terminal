@@ -12,6 +12,7 @@ class ExpressionType(str, Enum):
     INDICATOR = "INDICATOR"
     TIME = "TIME"
     VARIABLE = "VARIABLE"
+    POSITION = "POSITION"
     ARITHMETIC = "ARITHMETIC"
     UNARY = "UNARY"
 
@@ -32,6 +33,19 @@ class TimeField(str, Enum):
     TIMESTAMP = "timestamp"
     TIME_OF_DAY = "time_of_day"
     DAY_OF_WEEK = "day_of_week"
+
+
+class PositionField(str, Enum):
+    """Position properties exposed to strategy expressions."""
+
+    QUANTITY = "quantity"
+    ENTRY_PRICE = "entry_price"
+    CURRENT_PRICE = "current_price"
+    AVERAGE_PRICE = "average_price"
+    REALIZED_PNL = "realized_pnl"
+    UNREALIZED_PNL = "unrealized_pnl"
+    UNREALIZED_PNL_PERCENT = "unrealized_pnl_percent"
+    OPEN = "open"
 
 
 @dataclass(frozen=True)
@@ -93,6 +107,17 @@ class VariableExpression:
 
 
 @dataclass(frozen=True)
+class PositionExpression:
+    """A reference to a current strategy position property."""
+
+    field: PositionField
+
+    @property
+    def expression_type(self) -> ExpressionType:
+        return ExpressionType.POSITION
+
+
+@dataclass(frozen=True)
 class ArithmeticExpression:
     """Compose two expressions with a deterministic arithmetic operator."""
 
@@ -139,6 +164,7 @@ Expression = (
     | IndicatorExpression
     | TimeExpression
     | VariableExpression
+    | PositionExpression
     | ArithmeticExpression
     | UnaryExpression
 )
@@ -197,6 +223,16 @@ def variable(name: str) -> VariableExpression:
         raise ValueError("Variable name must not be empty.")
 
     return VariableExpression(name=normalized)
+
+
+def position(field: PositionField | str) -> PositionExpression:
+    return PositionExpression(
+        field=(
+            field
+            if isinstance(field, PositionField)
+            else PositionField(field.strip().lower())
+        )
+    )
 
 
 def arithmetic(
