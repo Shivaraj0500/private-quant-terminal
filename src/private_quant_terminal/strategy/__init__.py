@@ -18,6 +18,7 @@ from private_quant_terminal.strategy.ir import (
     StopLoss,
     StrategyCondition,
     StrategyDefinition,
+    StrategyIR,
     StrategyVersion,
     TakeProfit,
 )
@@ -45,6 +46,7 @@ __all__ = [
     "StrategyCondition",
     "StrategyCreationResult",
     "StrategyDefinition",
+    "StrategyIR",
     "StrategyLifecycleService",
     "StrategyStatus",
     "StrategyTimeframe",
