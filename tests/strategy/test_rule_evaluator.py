@@ -24,6 +24,7 @@ from private_quant_terminal.strategy.rule_evaluator import (
     TriggeredRule,
 )
 from private_quant_terminal.strategy.rules import StrategyRule
+from private_quant_terminal.strategy.variables import VariableMutation
 
 
 def candles(count: int = 60) -> list[Candle]:
@@ -390,3 +391,104 @@ def test_triggered_rule_is_immutable() -> None:
 
     with pytest.raises(AttributeError):
         triggered.rule_id = "changed"
+
+
+def test_evaluator_returns_variable_mutations_from_triggered_rules() -> None:
+    mutation = VariableMutation(
+        name="roll_count",
+        value=1,
+    )
+
+    rule = StrategyRule(
+        rule_id="roll",
+        name="roll",
+        condition=compare(
+            price("close"),
+            ">",
+            constant(100),
+        ),
+        variable_mutations=(mutation,),
+    )
+
+    result = StrategyRuleEvaluator().evaluate(
+        (rule,),
+        candles(),
+        index=len(candles()) - 1,
+    )
+
+    assert len(result.triggered_rules) == 1
+    assert result.triggered_rules[0].variable_mutations == (mutation,)
+    assert result.variable_mutations == (mutation,)
+
+
+def test_evaluator_aggregates_variable_mutations_in_priority_order() -> None:
+    low_mutation = VariableMutation(
+        name="low_marker",
+        value=1,
+    )
+    high_mutation = VariableMutation(
+        name="high_marker",
+        value=2,
+    )
+
+    low_rule = StrategyRule(
+        rule_id="low",
+        name="low",
+        condition=compare(
+            price("close"),
+            ">",
+            constant(100),
+        ),
+        variable_mutations=(low_mutation,),
+        priority=10,
+    )
+
+    high_rule = StrategyRule(
+        rule_id="high",
+        name="high",
+        condition=compare(
+            price("close"),
+            ">",
+            constant(100),
+        ),
+        variable_mutations=(high_mutation,),
+        priority=100,
+    )
+
+    result = StrategyRuleEvaluator().evaluate(
+        (low_rule, high_rule),
+        candles(),
+        index=len(candles()) - 1,
+    )
+
+    assert result.variable_mutations == (
+        high_mutation,
+        low_mutation,
+    )
+
+
+def test_evaluator_returns_no_variable_mutations_for_false_rules() -> None:
+    rule = StrategyRule(
+        rule_id="roll",
+        name="roll",
+        condition=compare(
+            price("close"),
+            ">",
+            constant(10_000),
+        ),
+        variable_mutations=(
+            VariableMutation(
+                name="roll_count",
+                value=1,
+            ),
+        ),
+    )
+
+    result = StrategyRuleEvaluator().evaluate(
+        (rule,),
+        candles(),
+        index=len(candles()) - 1,
+    )
+
+    assert result.triggered_rules == ()
+    assert result.variable_mutations == ()

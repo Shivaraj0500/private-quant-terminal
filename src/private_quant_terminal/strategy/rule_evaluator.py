@@ -7,7 +7,10 @@ from private_quant_terminal.models import Candle
 from private_quant_terminal.strategy.actions import StrategyAction
 from private_quant_terminal.strategy.evaluator import ConditionEvaluator
 from private_quant_terminal.strategy.rules import StrategyRule
-from private_quant_terminal.strategy.variables import StrategyRuntimeContext
+from private_quant_terminal.strategy.variables import (
+    StrategyRuntimeContext,
+    VariableMutation,
+)
 
 
 @dataclass(frozen=True)
@@ -16,6 +19,7 @@ class TriggeredRule:
 
     rule_id: str
     actions: tuple[StrategyAction, ...]
+    variable_mutations: tuple[VariableMutation, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -28,7 +32,21 @@ class RuleEvaluationResult:
     def actions(self) -> tuple[StrategyAction, ...]:
         """Return all actions emitted by triggered rules."""
 
-        return tuple(action for rule in self.triggered_rules for action in rule.actions)
+        return tuple(
+            action
+            for rule in self.triggered_rules
+            for action in rule.actions
+        )
+
+    @property
+    def variable_mutations(self) -> tuple[VariableMutation, ...]:
+        """Return all variable mutations emitted by triggered rules."""
+
+        return tuple(
+            mutation
+            for rule in self.triggered_rules
+            for mutation in rule.variable_mutations
+        )
 
 
 class StrategyRuleEvaluator:
@@ -88,6 +106,7 @@ class StrategyRuleEvaluator:
                     TriggeredRule(
                         rule_id=rule.rule_id,
                         actions=rule.actions,
+                        variable_mutations=rule.variable_mutations,
                     )
                 )
 

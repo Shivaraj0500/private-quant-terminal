@@ -19,6 +19,7 @@ from private_quant_terminal.strategy.positions import (
     PositionGroup,
     StrategyLeg,
 )
+from private_quant_terminal.strategy.rules import StrategyRule
 from private_quant_terminal.strategy.states import StrategyExecutionState
 
 
@@ -1051,3 +1052,172 @@ def test_orchestrator_persists_variable_values_across_runtime_contexts() -> None
     )
 
     assert second_context.resolve("roll_count") == 1
+
+
+def test_orchestrator_applies_variable_mutations_to_store() -> None:
+    from private_quant_terminal.strategy.variables import (
+        StrategyVariable,
+        VariableMutation,
+        VariableScope,
+        VariableType,
+    )
+
+    variable = StrategyVariable(
+        name="roll_count",
+        variable_type=VariableType.NUMBER,
+        scope=VariableScope.STRATEGY,
+        value=0,
+    )
+
+    orchestrator = ExecutionOrchestrator(
+        variables=(variable,),
+    )
+
+    mutation = VariableMutation(
+        name="roll_count",
+        value=1,
+    )
+
+    assert orchestrator.variable_store.resolve("roll_count") == 0
+
+    orchestrator._apply_variable_mutations((mutation,))
+
+    assert orchestrator.variable_store.resolve("roll_count") == 1
+
+
+def test_evaluate_and_process_applies_variable_mutation_after_approval() -> None:
+    from datetime import UTC, datetime
+
+    from private_quant_terminal.models import Candle
+    from private_quant_terminal.strategy.conditions import compare
+    from private_quant_terminal.strategy.expressions import constant, price
+    from private_quant_terminal.strategy.variables import (
+        StrategyVariable,
+        VariableMutation,
+        VariableScope,
+        VariableType,
+    )
+
+    variable = StrategyVariable(
+        name="roll_count",
+        variable_type=VariableType.NUMBER,
+        scope=VariableScope.STRATEGY,
+        value=0,
+    )
+
+    orchestrator = ExecutionOrchestrator(
+        variables=(variable,),
+    )
+    orchestrator.start()
+
+    rule = StrategyRule(
+        rule_id="mutation-rule",
+        name="Mutation Rule",
+        condition=compare(
+            price("close"),
+            ">",
+            constant(100),
+        ),
+        variable_mutations=(
+            VariableMutation(
+                name="roll_count",
+                value=1,
+            ),
+        ),
+    )
+
+    candles = (
+        Candle(
+            timestamp=datetime(2026, 8, 30, 10, 0, tzinfo=UTC),
+            open=100.0,
+            high=105.0,
+            low=99.0,
+            close=102.0,
+            volume=1000.0,
+        ),
+    )
+
+    evaluation, result = orchestrator.evaluate_and_process(
+        (rule,),
+        candles,
+        0,
+    )
+
+    assert evaluation.variable_mutations == (
+        VariableMutation(name="roll_count", value=1),
+    )
+    assert result.rejection_reasons == ()
+    assert orchestrator.variable_store.resolve("roll_count") == 1
+
+
+def test_evaluate_and_process_does_not_apply_mutation_when_execution_is_rejected() -> None:
+    from datetime import UTC, datetime, time
+
+    from private_quant_terminal.models import Candle
+    from private_quant_terminal.strategy.conditions import compare
+    from private_quant_terminal.strategy.expressions import constant, price
+    from private_quant_terminal.strategy.session import StrategySession
+    from private_quant_terminal.strategy.states import SessionMode
+    from private_quant_terminal.strategy.variables import (
+        StrategyVariable,
+        VariableMutation,
+        VariableScope,
+        VariableType,
+    )
+
+    variable = StrategyVariable(
+        name="roll_count",
+        variable_type=VariableType.NUMBER,
+        scope=VariableScope.STRATEGY,
+        value=0,
+    )
+
+    orchestrator = ExecutionOrchestrator(
+        variables=(variable,),
+    )
+    orchestrator.start()
+
+    rule = StrategyRule(
+        rule_id="mutation-rule",
+        name="Mutation Rule",
+        condition=compare(
+            price("close"),
+            ">",
+            constant(100),
+        ),
+        actions=(EnterAction(position=option_group("mutation-entry")),),
+        variable_mutations=(
+            VariableMutation(
+                name="roll_count",
+                value=1,
+            ),
+        ),
+    )
+
+    candles = (
+        Candle(
+            timestamp=datetime(2026, 8, 30, 8, 0, tzinfo=UTC),
+            open=100.0,
+            high=105.0,
+            low=99.0,
+            close=102.0,
+            volume=1000.0,
+        ),
+    )
+
+    evaluation, result = orchestrator.evaluate_and_process(
+        (rule,),
+        candles,
+        0,
+        session=StrategySession(
+            mode=SessionMode.OVERNIGHT,
+            market_start=time(9, 15),
+            market_end=time(15, 30),
+        ),
+    )
+
+    assert evaluation.variable_mutations == (
+        VariableMutation(name="roll_count", value=1),
+    )
+    assert result.rejection_reasons
+    assert orchestrator.variable_store.resolve("roll_count") == 0

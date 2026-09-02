@@ -40,6 +40,7 @@ from private_quant_terminal.strategy.variables import (
     StrategyRuntimeContext,
     StrategyVariable,
     StrategyVariableStore,
+    VariableMutation,
 )
 
 
@@ -131,6 +132,15 @@ class ExecutionOrchestrator:
         )
 
         return self.runtime_state
+
+    def _apply_variable_mutations(
+        self,
+        mutations: tuple[VariableMutation, ...],
+    ) -> None:
+        """Apply evaluated variable mutations in deterministic order."""
+
+        for mutation in mutations:
+            self.variable_store.apply(mutation)
 
     def _open_position_group_count(self) -> int:
         """Return the number of currently open position groups."""
@@ -228,6 +238,11 @@ class ExecutionOrchestrator:
             context=runtime_context.session,
             runtime_context=runtime_context,
         )
+
+        if not result.rejection_reasons:
+            self._apply_variable_mutations(
+                evaluation.variable_mutations,
+            )
 
         return evaluation, result
 
