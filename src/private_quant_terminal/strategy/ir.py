@@ -14,6 +14,7 @@ from private_quant_terminal.strategy.enums import (
 from private_quant_terminal.strategy.positions import PositionGroup
 from private_quant_terminal.strategy.rules import StrategyRule
 from private_quant_terminal.strategy.session import StrategySession
+from private_quant_terminal.strategy.states import StateTransition, StrategyState
 from private_quant_terminal.strategy.variables import StrategyVariable
 
 
@@ -90,6 +91,8 @@ class StrategyIR:
     timeframe: StrategyTimeframe
     variables: tuple[StrategyVariable, ...] = ()
     rules: tuple[StrategyRule, ...] = ()
+    states: tuple[StrategyState, ...] = ()
+    transitions: tuple[StateTransition, ...] = ()
     data_requirements: tuple[DataRequirement, ...] = ()
     position_groups: tuple[PositionGroup, ...] = ()
     session: StrategySession | None = None
@@ -132,6 +135,42 @@ class StrategyIR:
         rule_ids = tuple(rule.rule_id for rule in self.rules)
         if len(set(rule_ids)) != len(rule_ids):
             raise ValueError("Strategy rule IDs must be unique.")
+
+        state_ids = tuple(state.state_id for state in self.states)
+        if len(set(state_ids)) != len(state_ids):
+            raise ValueError("Strategy state IDs must be unique.")
+
+        initial_states = tuple(
+            state for state in self.states if state.initial
+        )
+        if len(initial_states) > 1:
+            raise ValueError("Strategy must contain at most one initial state.")
+
+        transition_ids = tuple(
+            transition.transition_id
+            for transition in self.transitions
+        )
+        if len(set(transition_ids)) != len(transition_ids):
+            raise ValueError("Strategy transition IDs must be unique.")
+
+        declared_state_ids = set(state_ids)
+
+        for transition in self.transitions:
+            if transition.from_state not in declared_state_ids:
+                raise ValueError(
+                    "Strategy transition source state must be declared."
+                )
+            if transition.to_state not in declared_state_ids:
+                raise ValueError(
+                    "Strategy transition target state must be declared."
+                )
+
+        for rule in self.rules:
+            for state in rule.states:
+                if state not in declared_state_ids:
+                    raise ValueError(
+                        "Strategy rule state must be declared."
+                    )
 
         if len(set(self.data_requirements)) != len(self.data_requirements):
             raise ValueError("Strategy data requirements must be unique.")

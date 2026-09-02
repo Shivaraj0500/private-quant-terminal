@@ -16,6 +16,7 @@ class StrategyRule:
     actions: tuple[StrategyAction, ...]
     priority: int = 0
     enabled: bool = True
+    states: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         if not self.rule_id.strip():
@@ -32,6 +33,17 @@ class StrategyRule:
         if self.priority < 0:
             raise ValueError("Rule priority cannot be negative.")
 
+        normalized_states = tuple(
+            state.strip()
+            for state in self.states
+        )
+
+        if any(not state for state in normalized_states):
+            raise ValueError("Strategy rule states must not be empty.")
+
+        if len(set(normalized_states)) != len(normalized_states):
+            raise ValueError("Strategy rule states must be unique.")
+
         object.__setattr__(
             self,
             "rule_id",
@@ -41,4 +53,9 @@ class StrategyRule:
             self,
             "name",
             self.name.strip(),
+        )
+        object.__setattr__(
+            self,
+            "states",
+            normalized_states,
         )
