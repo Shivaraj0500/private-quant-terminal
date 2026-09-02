@@ -48,11 +48,30 @@ class StrategyRuleEvaluator:
         candles: Sequence[Candle],
         index: int,
         context: StrategyRuntimeContext | None = None,
+        current_state: str | None = None,
     ) -> RuleEvaluationResult:
-        """Evaluate enabled rules in deterministic priority order."""
+        """Evaluate applicable enabled rules in deterministic priority order."""
+
+        normalized_state = (
+            current_state.strip()
+            if current_state is not None
+            else None
+        )
+
+        if normalized_state == "":
+            raise ValueError("current_state must not be empty.")
 
         ordered_rules = sorted(
-            (rule for rule in rules if rule.enabled),
+            (
+                rule
+                for rule in rules
+                if rule.enabled
+                and (
+                    not rule.states
+                    or normalized_state is None
+                    or normalized_state in rule.states
+                )
+            ),
             key=lambda rule: (-rule.priority, rule.rule_id),
         )
 

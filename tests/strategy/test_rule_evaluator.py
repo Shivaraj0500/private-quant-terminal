@@ -99,6 +99,178 @@ def test_evaluator_returns_triggered_rules() -> None:
     assert len(result.actions) == 1
 
 
+def test_evaluator_filters_rules_by_current_state() -> None:
+    entry_rule = StrategyRule(
+        rule_id="entry",
+        name="entry",
+        condition=compare(
+            price("close"),
+            ">",
+            constant(100),
+        ),
+        actions=(make_entry_action("entry"),),
+        priority=20,
+        states=("ENTRY",),
+    )
+
+    managing_rule = StrategyRule(
+        rule_id="managing",
+        name="managing",
+        condition=compare(
+            price("close"),
+            ">",
+            constant(100),
+        ),
+        actions=(make_entry_action("managing"),),
+        priority=10,
+        states=("MANAGING",),
+    )
+
+    result = StrategyRuleEvaluator().evaluate(
+        (entry_rule, managing_rule),
+        candles(),
+        index=len(candles()) - 1,
+        current_state="ENTRY",
+    )
+
+    assert tuple(rule.rule_id for rule in result.triggered_rules) == ("entry",)
+
+
+def test_evaluator_keeps_unscoped_rules_active_in_every_state() -> None:
+    universal_rule = make_rule(
+        "universal",
+        priority=20,
+        threshold=100,
+    )
+
+    managing_rule = StrategyRule(
+        rule_id="managing",
+        name="managing",
+        condition=compare(
+            price("close"),
+            ">",
+            constant(100),
+        ),
+        actions=(make_entry_action("managing"),),
+        priority=10,
+        states=("MANAGING",),
+    )
+
+    result = StrategyRuleEvaluator().evaluate(
+        (universal_rule, managing_rule),
+        candles(),
+        index=len(candles()) - 1,
+        current_state="ENTRY",
+    )
+
+    assert tuple(rule.rule_id for rule in result.triggered_rules) == ("universal",)
+
+
+def test_evaluator_preserves_legacy_behavior_without_current_state() -> None:
+    entry_rule = StrategyRule(
+        rule_id="entry",
+        name="entry",
+        condition=compare(
+            price("close"),
+            ">",
+            constant(100),
+        ),
+        actions=(make_entry_action("entry"),),
+        priority=20,
+        states=("ENTRY",),
+    )
+
+    managing_rule = StrategyRule(
+        rule_id="managing",
+        name="managing",
+        condition=compare(
+            price("close"),
+            ">",
+            constant(100),
+        ),
+        actions=(make_entry_action("managing"),),
+        priority=10,
+        states=("MANAGING",),
+    )
+
+    result = StrategyRuleEvaluator().evaluate(
+        (entry_rule, managing_rule),
+        candles(),
+        index=len(candles()) - 1,
+    )
+
+    assert tuple(rule.rule_id for rule in result.triggered_rules) == (
+        "entry",
+        "managing",
+    )
+
+
+def test_evaluator_rejects_empty_current_state() -> None:
+    with pytest.raises(ValueError, match="current_state must not be empty"):
+        StrategyRuleEvaluator().evaluate(
+            (make_rule("entry", priority=10, threshold=100),),
+            candles(),
+            index=len(candles()) - 1,
+            current_state="   ",
+        )
+
+
+def test_evaluator_does_not_evaluate_filtered_rules() -> None:
+    class StubConditionEvaluator:
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def evaluate(
+            self,
+            condition,
+            candles,
+            index,
+            context=None,
+        ) -> bool:
+            self.calls += 1
+            return True
+
+    filtered_rule = StrategyRule(
+        rule_id="filtered",
+        name="filtered",
+        condition=compare(
+            price("close"),
+            ">",
+            constant(100),
+        ),
+        actions=(make_entry_action("filtered"),),
+        priority=20,
+        states=("MANAGING",),
+    )
+
+    active_rule = StrategyRule(
+        rule_id="active",
+        name="active",
+        condition=compare(
+            price("close"),
+            ">",
+            constant(100),
+        ),
+        actions=(make_entry_action("active"),),
+        priority=10,
+        states=("ENTRY",),
+    )
+
+    condition_evaluator = StubConditionEvaluator()
+
+    result = StrategyRuleEvaluator(
+        condition_evaluator=condition_evaluator,
+    ).evaluate(
+        (filtered_rule, active_rule),
+        candles(),
+        index=len(candles()) - 1,
+        current_state="ENTRY",
+    )
+
+    assert condition_evaluator.calls == 1
+    assert tuple(rule.rule_id for rule in result.triggered_rules) == ("active",)
+
+
 def test_evaluator_ignores_false_rules() -> None:
     rules = (make_rule("entry", priority=10, threshold=10_000),)
 
