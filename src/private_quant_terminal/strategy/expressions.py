@@ -12,6 +12,8 @@ class ExpressionType(str, Enum):
     INDICATOR = "INDICATOR"
     TIME = "TIME"
     VARIABLE = "VARIABLE"
+    ARITHMETIC = "ARITHMETIC"
+    UNARY = "UNARY"
 
 
 class PriceField(str, Enum):
@@ -90,12 +92,55 @@ class VariableExpression:
         return ExpressionType.VARIABLE
 
 
+@dataclass(frozen=True)
+class ArithmeticExpression:
+    """Compose two expressions with a deterministic arithmetic operator."""
+
+    left: Expression
+    operator: str
+    right: Expression
+
+    @property
+    def expression_type(self) -> ExpressionType:
+        return ExpressionType.ARITHMETIC
+
+    def __post_init__(self) -> None:
+        normalized = self.operator.strip()
+        if normalized not in {"+", "-", "*", "/", "%", "**"}:
+            raise ValueError(
+                f"Unsupported arithmetic operator: {self.operator}"
+            )
+        object.__setattr__(self, "operator", normalized)
+
+
+@dataclass(frozen=True)
+class UnaryExpression:
+    """Apply a deterministic unary operation to an expression."""
+
+    operator: str
+    operand: Expression
+
+    @property
+    def expression_type(self) -> ExpressionType:
+        return ExpressionType.UNARY
+
+    def __post_init__(self) -> None:
+        normalized = self.operator.strip().lower()
+        if normalized not in {"abs", "neg"}:
+            raise ValueError(
+                f"Unsupported unary operator: {self.operator}"
+            )
+        object.__setattr__(self, "operator", normalized)
+
+
 Expression = (
     ConstantExpression
     | PriceExpression
     | IndicatorExpression
     | TimeExpression
     | VariableExpression
+    | ArithmeticExpression
+    | UnaryExpression
 )
 
 
@@ -152,3 +197,58 @@ def variable(name: str) -> VariableExpression:
         raise ValueError("Variable name must not be empty.")
 
     return VariableExpression(name=normalized)
+
+
+def arithmetic(
+    left: Expression,
+    operator: str,
+    right: Expression,
+) -> ArithmeticExpression:
+    """Construct a binary arithmetic expression."""
+
+    return ArithmeticExpression(
+        left=left,
+        operator=operator,
+        right=right,
+    )
+
+
+def add(left: Expression, right: Expression) -> ArithmeticExpression:
+    return arithmetic(left, "+", right)
+
+
+def subtract(left: Expression, right: Expression) -> ArithmeticExpression:
+    return arithmetic(left, "-", right)
+
+
+def multiply(left: Expression, right: Expression) -> ArithmeticExpression:
+    return arithmetic(left, "*", right)
+
+
+def divide(left: Expression, right: Expression) -> ArithmeticExpression:
+    return arithmetic(left, "/", right)
+
+
+def modulo(left: Expression, right: Expression) -> ArithmeticExpression:
+    return arithmetic(left, "%", right)
+
+
+def power(left: Expression, right: Expression) -> ArithmeticExpression:
+    return arithmetic(left, "**", right)
+
+
+def unary(operator: str, operand: Expression) -> UnaryExpression:
+    """Construct a unary expression."""
+
+    return UnaryExpression(
+        operator=operator,
+        operand=operand,
+    )
+
+
+def absolute(operand: Expression) -> UnaryExpression:
+    return unary("abs", operand)
+
+
+def negate(operand: Expression) -> UnaryExpression:
+    return unary("neg", operand)

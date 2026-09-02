@@ -1,4 +1,5 @@
 from private_quant_terminal.strategy.expressions import (
+    ArithmeticExpression,
     ConstantExpression,
     ExpressionType,
     IndicatorExpression,
@@ -6,9 +7,14 @@ from private_quant_terminal.strategy.expressions import (
     PriceField,
     TimeExpression,
     TimeField,
+    UnaryExpression,
     VariableExpression,
+    absolute,
+    add,
+    arithmetic,
     constant,
     indicator,
+    negate,
     price,
     time_value,
     variable,
@@ -96,5 +102,72 @@ def test_variable_expression_rejects_empty_name() -> None:
         variable("   ")
     except ValueError as exc:
         assert str(exc) == "Variable name must not be empty."
+    else:
+        raise AssertionError("Expected ValueError")
+
+
+def test_arithmetic_expression_supports_all_binary_operators() -> None:
+    left = constant(10)
+    right = constant(3)
+
+    for operator in ("+", "-", "*", "/", "%", "**"):
+        expression = arithmetic(left, operator, right)
+
+        assert isinstance(expression, ArithmeticExpression)
+        assert expression.left == left
+        assert expression.right == right
+        assert expression.operator == operator
+        assert expression.expression_type is ExpressionType.ARITHMETIC
+
+
+def test_arithmetic_helpers_create_expected_operators() -> None:
+    left = constant(10)
+    right = constant(3)
+
+    assert add(left, right).operator == "+"
+    assert arithmetic(left, "-", right).operator == "-"
+    assert arithmetic(left, "*", right).operator == "*"
+    assert arithmetic(left, "/", right).operator == "/"
+    assert arithmetic(left, "%", right).operator == "%"
+    assert arithmetic(left, "**", right).operator == "**"
+
+
+def test_unary_expression_supports_abs_and_neg() -> None:
+    operand = variable("pnl")
+
+    absolute_expression = absolute(operand)
+    negate_expression = negate(operand)
+
+    assert isinstance(absolute_expression, UnaryExpression)
+    assert absolute_expression.operator == "abs"
+    assert absolute_expression.operand == operand
+    assert absolute_expression.expression_type is ExpressionType.UNARY
+
+    assert isinstance(negate_expression, UnaryExpression)
+    assert negate_expression.operator == "neg"
+    assert negate_expression.operand == operand
+    assert negate_expression.expression_type is ExpressionType.UNARY
+
+
+def test_expression_operators_are_normalized() -> None:
+    expression = arithmetic(constant(10), "  +  ", constant(2))
+    unary_expression = UnaryExpression(operator=" ABS ", operand=constant(-5))
+
+    assert expression.operator == "+"
+    assert unary_expression.operator == "abs"
+
+
+def test_expression_operators_reject_unsupported_values() -> None:
+    try:
+        arithmetic(constant(1), "//", constant(2))
+    except ValueError as exc:
+        assert str(exc) == "Unsupported arithmetic operator: //"
+    else:
+        raise AssertionError("Expected ValueError")
+
+    try:
+        UnaryExpression(operator="sqrt", operand=constant(4))
+    except ValueError as exc:
+        assert str(exc) == "Unsupported unary operator: sqrt"
     else:
         raise AssertionError("Expected ValueError")
