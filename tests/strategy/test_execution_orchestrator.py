@@ -215,6 +215,60 @@ def test_state_transition_preserves_action_order() -> None:
     )
     assert machine.current_state == "ACTIVE"
 
+
+
+def test_evaluate_and_process_filters_rules_by_current_state() -> None:
+    entry_group = option_group("state-rule-entry")
+    managing_group = option_group("state-rule-managing")
+
+    entry_rule = StrategyRule(
+        rule_id="entry-rule",
+        name="Entry rule",
+        condition=compare(
+            PriceExpression(field=PriceField.CLOSE),
+            ComparisonOperator.GREATER_THAN,
+            ConstantExpression(value=100.0),
+        ),
+        actions=(EnterAction(position=entry_group),),
+        priority=20,
+        states=("ENTRY",),
+    )
+
+    managing_rule = StrategyRule(
+        rule_id="managing-rule",
+        name="Managing rule",
+        condition=compare(
+            PriceExpression(field=PriceField.CLOSE),
+            ComparisonOperator.GREATER_THAN,
+            ConstantExpression(value=100.0),
+        ),
+        actions=(EnterAction(position=managing_group),),
+        priority=10,
+        states=("MANAGING",),
+    )
+
+    orchestrator = ExecutionOrchestrator()
+    orchestrator.start()
+
+    evaluation, result = orchestrator.evaluate_and_process(
+        (entry_rule, managing_rule),
+        (transition_candle(),),
+        0,
+        current_state="ENTRY",
+    )
+
+    assert tuple(
+        rule.rule_id for rule in evaluation.triggered_rules
+    ) == ("entry-rule",)
+    assert len(result.action_results) == 1
+    assert orchestrator.action_processor.get_position(
+        "state-rule-entry"
+    ) == entry_group
+    assert orchestrator.action_processor.get_position(
+        "state-rule-managing"
+    ) is None
+
+
 def option_group(group_id: str) -> PositionGroup:
     selector = OptionSelector(
         underlying="BANKNIFTY",

@@ -221,6 +221,7 @@ class ExecutionOrchestrator:
         position: PositionContext | None = None,
         variables: tuple[StrategyVariable, ...] = (),
         session: StrategySession | None = None,
+        current_state: str | None = None,
     ) -> tuple[RuleEvaluationResult, ExecutionOrchestrationResult]:
         """Evaluate strategy rules and process their resulting actions."""
 
@@ -242,6 +243,7 @@ class ExecutionOrchestrator:
             candles,
             index,
             runtime_context,
+            current_state=current_state,
         )
 
         result = self.process(
