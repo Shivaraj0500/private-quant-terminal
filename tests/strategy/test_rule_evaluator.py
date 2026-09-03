@@ -194,6 +194,71 @@ def test_evaluator_preserves_priority_order_for_assignment_mutations() -> None:
     )
 
 
+def test_evaluator_evaluates_assignments_against_same_runtime_snapshot() -> None:
+    variable_definitions = (
+        StrategyVariable(
+            name="roll_count",
+            variable_type=VariableType.NUMBER,
+            scope=VariableScope.STRATEGY,
+            value=5,
+        ),
+        StrategyVariable(
+            name="observed_count",
+            variable_type=VariableType.NUMBER,
+            scope=VariableScope.STRATEGY,
+            value=0,
+        ),
+    )
+
+    store = StrategyVariableStore(variable_definitions)
+
+    context = StrategyRuntimeContext(
+        market=MarketContext(
+            timestamp=candles()[-1].timestamp,
+            open=159.0,
+            high=160.0,
+            low=158.0,
+            close=159.0,
+            volume=1000.0,
+        ),
+        variable_store=store,
+    )
+
+    rule = StrategyRule(
+        rule_id="snapshot-assignments",
+        name="Snapshot Assignments",
+        condition=compare(
+            price("close"),
+            ">",
+            constant(100),
+        ),
+        variable_assignments=(
+            VariableAssignment(
+                name="observed_count",
+                value=variable("roll_count"),
+            ),
+            VariableAssignment(
+                name="roll_count",
+                value=add(variable("roll_count"), constant(1)),
+            ),
+        ),
+    )
+
+    result = StrategyRuleEvaluator().evaluate(
+        (rule,),
+        candles(),
+        index=len(candles()) - 1,
+        context=context,
+    )
+
+    assert result.variable_mutations == (
+        VariableMutation(name="observed_count", value=5),
+        VariableMutation(name="roll_count", value=6),
+    )
+    assert store.resolve("roll_count") == 5
+    assert store.resolve("observed_count") == 0
+
+
 def test_evaluator_does_not_evaluate_assignments_for_false_rules() -> None:
     rule = StrategyRule(
         rule_id="false-assignment",
