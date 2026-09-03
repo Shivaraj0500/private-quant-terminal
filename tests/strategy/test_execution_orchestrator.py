@@ -19,6 +19,7 @@ from private_quant_terminal.strategy.positions import (
     PositionGroup,
     StrategyLeg,
 )
+from private_quant_terminal.strategy.expressions import add, constant, variable
 from private_quant_terminal.strategy.rules import StrategyRule
 from private_quant_terminal.strategy.states import StrategyExecutionState
 
@@ -708,6 +709,264 @@ def test_evaluate_and_process_evaluates_rule_and_processes_actions() -> None:
     assert len(result.action_results) == 1
     assert orchestrator.runtime_state.session.entries_today == 1
     assert orchestrator.runtime_state.session.trades_today == 1
+
+
+def test_evaluate_and_process_persists_variable_assignment_after_acceptance() -> None:
+    from datetime import UTC, datetime
+
+    from private_quant_terminal.models import Candle
+    from private_quant_terminal.strategy.conditions import compare
+    from private_quant_terminal.strategy.expressions import (
+        ConstantExpression,
+        PriceExpression,
+        PriceField,
+    )
+    from private_quant_terminal.strategy.variables import (
+        StrategyVariable,
+        VariableScope,
+        VariableType,
+        VariableAssignment,
+        VariableMutation,
+    )
+
+    timestamp = datetime(2026, 8, 30, 10, 0, tzinfo=UTC)
+
+    variable_definition = StrategyVariable(
+        name="roll_count",
+        variable_type=VariableType.NUMBER,
+        scope=VariableScope.STRATEGY,
+        value=0,
+    )
+
+    orchestrator = ExecutionOrchestrator(
+        variables=(variable_definition,),
+    )
+    orchestrator.start()
+
+    rule = StrategyRule(
+        rule_id="assignment-rule",
+        name="Assignment Rule",
+        condition=compare(
+            PriceExpression(field=PriceField.CLOSE),
+            ">",
+            ConstantExpression(value=100.0),
+        ),
+        variable_assignments=(
+            VariableAssignment(
+                name="roll_count",
+                value=add(variable("roll_count"), constant(1)),
+            ),
+        ),
+    )
+
+    candles = (
+        Candle(
+            timestamp=timestamp,
+            open=100.0,
+            high=105.0,
+            low=99.0,
+            close=102.0,
+            volume=1000.0,
+        ),
+    )
+
+    evaluation, result = orchestrator.evaluate_and_process(
+        (rule,),
+        candles,
+        0,
+    )
+
+    assert result.rejection_reasons == ()
+    assert evaluation.variable_mutations == (
+        VariableMutation(name="roll_count", value=1),
+    )
+    assert orchestrator.variable_store.resolve("roll_count") == 1
+
+
+def test_evaluate_and_process_does_not_persist_variable_assignment_when_rejected() -> None:
+    from datetime import UTC, datetime, time
+
+    from private_quant_terminal.models import Candle
+    from private_quant_terminal.strategy.conditions import compare
+    from private_quant_terminal.strategy.expressions import (
+        ConstantExpression,
+        PriceExpression,
+        PriceField,
+    )
+    from private_quant_terminal.strategy.session import StrategySession
+    from private_quant_terminal.strategy.states import SessionMode
+    from private_quant_terminal.strategy.variables import (
+        StrategyVariable,
+        VariableAssignment,
+        VariableScope,
+        VariableType,
+        SessionContext,
+    )
+
+    timestamp = datetime(2026, 8, 30, 8, 0, tzinfo=UTC)
+
+    variable_definition = StrategyVariable(
+        name="roll_count",
+        variable_type=VariableType.NUMBER,
+        scope=VariableScope.STRATEGY,
+        value=0,
+    )
+
+    orchestrator = ExecutionOrchestrator(
+        variables=(variable_definition,),
+    )
+    orchestrator.start()
+
+    rule = StrategyRule(
+        rule_id="rejected-assignment-rule",
+        name="Rejected Assignment Rule",
+        condition=compare(
+            PriceExpression(field=PriceField.CLOSE),
+            ">",
+            ConstantExpression(value=100.0),
+        ),
+        actions=(EnterAction(position=option_group("rejected-assignment")),),
+        variable_assignments=(
+            VariableAssignment(
+                name="roll_count",
+                value=add(variable("roll_count"), constant(1)),
+            ),
+        ),
+    )
+
+    candles = (
+        Candle(
+            timestamp=timestamp,
+            open=100.0,
+            high=105.0,
+            low=99.0,
+            close=102.0,
+            volume=1000.0,
+        ),
+    )
+
+    evaluation, result = orchestrator.evaluate_and_process(
+        (rule,),
+        candles,
+        0,
+        session=StrategySession(
+            mode=SessionMode.OVERNIGHT,
+            market_start=time(9, 15),
+            market_end=time(15, 30),
+            entry_start=time(9, 30),
+            entry_end=time(14, 30),
+        ),
+    )
+
+    assert len(evaluation.variable_mutations) == 1
+    assert result.rejection_reasons
+    assert orchestrator.variable_store.resolve("roll_count") == 0
+
+
+def test_evaluate_and_process_later_evaluation_reads_persisted_variable() -> None:
+    from datetime import UTC, datetime
+
+    from private_quant_terminal.models import Candle
+    from private_quant_terminal.strategy.conditions import compare
+    from private_quant_terminal.strategy.expressions import (
+        ConstantExpression,
+        PriceExpression,
+        PriceField,
+    )
+    from private_quant_terminal.strategy.variables import (
+        StrategyVariable,
+        VariableAssignment,
+        VariableMutation,
+        VariableScope,
+        VariableType,
+    )
+
+    timestamp = datetime(2026, 8, 30, 10, 0, tzinfo=UTC)
+
+    variable_definition = StrategyVariable(
+        name="roll_count",
+        variable_type=VariableType.NUMBER,
+        scope=VariableScope.STRATEGY,
+        value=0,
+    )
+
+    observed_definition = StrategyVariable(
+        name="observed_roll_count",
+        variable_type=VariableType.NUMBER,
+        scope=VariableScope.STRATEGY,
+        value=0,
+    )
+
+    orchestrator = ExecutionOrchestrator(
+        variables=(
+            variable_definition,
+            observed_definition,
+        ),
+    )
+    orchestrator.start()
+
+    increment_rule = StrategyRule(
+        rule_id="increment-roll-count",
+        name="Increment Roll Count",
+        condition=compare(
+            PriceExpression(field=PriceField.CLOSE),
+            ">",
+            ConstantExpression(value=100.0),
+        ),
+        variable_assignments=(
+            VariableAssignment(
+                name="roll_count",
+                value=add(variable("roll_count"), constant(1)),
+            ),
+        ),
+    )
+
+    candles = (
+        Candle(
+            timestamp=timestamp,
+            open=100.0,
+            high=105.0,
+            low=99.0,
+            close=102.0,
+            volume=1000.0,
+        ),
+    )
+
+    orchestrator.evaluate_and_process(
+        (increment_rule,),
+        candles,
+        0,
+    )
+
+    assert orchestrator.variable_store.resolve("roll_count") == 1
+
+    check_rule = StrategyRule(
+        rule_id="check-roll-count",
+        name="Check Roll Count",
+        condition=compare(
+            variable("roll_count"),
+            ">",
+            ConstantExpression(value=0.0),
+        ),
+        variable_assignments=(
+            VariableAssignment(
+                name="observed_roll_count",
+                value=variable("roll_count"),
+            ),
+        ),
+    )
+
+    evaluation, result = orchestrator.evaluate_and_process(
+        (check_rule,),
+        candles,
+        0,
+    )
+
+    assert result.rejection_reasons == ()
+    assert evaluation.variable_mutations == (
+        VariableMutation(name="observed_roll_count", value=1),
+    )
+    assert orchestrator.variable_store.resolve("observed_roll_count") == 1
 
 
 def test_evaluate_and_process_uses_current_runtime_session() -> None:
