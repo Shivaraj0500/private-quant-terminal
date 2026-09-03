@@ -1,8 +1,11 @@
 import pytest
 
+from private_quant_terminal.models import Candle
+
 from private_quant_terminal.strategy.actions import (
     EnterAction,
     ExitAction,
+    StrategyAction,
 )
 from private_quant_terminal.strategy.execution_orchestrator import (
     ExecutionOrchestrator,
@@ -19,10 +22,198 @@ from private_quant_terminal.strategy.positions import (
     PositionGroup,
     StrategyLeg,
 )
-from private_quant_terminal.strategy.expressions import add, constant, variable
+from private_quant_terminal.strategy.expressions import (
+    ConstantExpression,
+    PriceExpression,
+    PriceField,
+    add,
+    constant,
+    variable,
+)
 from private_quant_terminal.strategy.rules import StrategyRule
-from private_quant_terminal.strategy.states import StrategyExecutionState
+from private_quant_terminal.strategy.conditions import (
+    ComparisonOperator,
+    compare,
+)
+from private_quant_terminal.strategy.state_machine import StrategyStateMachine
+from private_quant_terminal.strategy.states import (
+    StateTransition,
+    StrategyExecutionState,
+    StrategyState,
+)
 
+
+def transition_candle(close: float = 102.0) -> Candle:
+    from datetime import UTC, datetime
+
+    return Candle(
+        timestamp=datetime(2026, 8, 30, 10, 0, tzinfo=UTC),
+        open=100.0,
+        high=105.0,
+        low=99.0,
+        close=close,
+        volume=1000.0,
+    )
+
+
+def make_state_transition(
+    *,
+    actions: tuple[StrategyAction, ...],
+) -> StateTransition:
+    return StateTransition(
+        transition_id="activate",
+        from_state="WAITING",
+        to_state="ACTIVE",
+        condition=compare(
+            PriceExpression(field=PriceField.CLOSE),
+            ComparisonOperator.GREATER_THAN,
+            ConstantExpression(value=100.0),
+        ),
+        actions=actions,
+        priority=1,
+    )
+
+
+def make_state_machine(
+    *,
+    actions: tuple[StrategyAction, ...],
+) -> StrategyStateMachine:
+    return StrategyStateMachine(
+        states=(
+            StrategyState(
+                state_id="WAITING",
+                name="Waiting",
+                initial=True,
+            ),
+            StrategyState(
+                state_id="ACTIVE",
+                name="Active",
+            ),
+        ),
+        transitions=(
+            make_state_transition(actions=actions),
+        ),
+    )
+
+
+def test_state_transition_executes_actions_before_applying_state() -> None:
+    group = option_group("transition-entry")
+    machine = make_state_machine(
+        actions=(EnterAction(position=group),),
+    )
+    orchestrator = ExecutionOrchestrator()
+
+    orchestrator.start()
+
+    result = orchestrator.process_state_transition(
+        machine,
+        transition_candle(),
+    )
+
+    assert result.transition is not None
+    assert result.transition.from_state == "WAITING"
+    assert result.transition.to_state == "ACTIVE"
+    assert result.execution_result is not None
+    assert len(result.execution_result.action_results) == 1
+    assert machine.current_state == "ACTIVE"
+    assert orchestrator.action_processor.get_position("transition-entry") == group
+
+
+
+def test_rejected_state_transition_does_not_apply_state() -> None:
+    from datetime import UTC, datetime, time
+
+    from private_quant_terminal.strategy.session import StrategySession
+    from private_quant_terminal.strategy.states import SessionMode
+
+    group = option_group("rejected-transition")
+    machine = make_state_machine(
+        actions=(EnterAction(position=group),),
+    )
+    orchestrator = ExecutionOrchestrator()
+    orchestrator.start()
+
+    session = StrategySession(
+        mode=SessionMode.OVERNIGHT,
+        market_start=time(9, 15),
+        market_end=time(15, 30),
+        entry_start=time(9, 30),
+        entry_end=time(14, 30),
+    )
+
+    candle = transition_candle()
+    candle = Candle(
+        timestamp=datetime(2026, 8, 30, 15, 0, tzinfo=UTC),
+        open=candle.open,
+        high=candle.high,
+        low=candle.low,
+        close=candle.close,
+        volume=candle.volume,
+    )
+
+    result = orchestrator.process_state_transition(
+        machine,
+        candle,
+        session=session,
+    )
+
+    assert result.transition is not None
+    assert result.execution_result.rejection_reasons
+    assert result.execution_result.action_results == ()
+    assert machine.current_state == "WAITING"
+    assert orchestrator.action_processor.get_position(
+        "rejected-transition"
+    ) is None
+
+
+def test_failed_state_transition_action_does_not_apply_state() -> None:
+    machine = make_state_machine(
+        actions=(ExitAction(group_id="missing-transition-group"),),
+    )
+    orchestrator = ExecutionOrchestrator()
+    orchestrator.start()
+
+    with pytest.raises(
+        KeyError,
+        match="Unknown position group",
+    ):
+        orchestrator.process_state_transition(
+            machine,
+            transition_candle(),
+        )
+
+    assert machine.current_state == "WAITING"
+    assert orchestrator.action_processor.get_position(
+        "missing-transition-group"
+    ) is None
+
+
+def test_state_transition_preserves_action_order() -> None:
+    first = option_group("transition-first")
+    second = option_group("transition-second")
+
+    machine = make_state_machine(
+        actions=(
+            EnterAction(position=first),
+            EnterAction(position=second),
+        ),
+    )
+    orchestrator = ExecutionOrchestrator()
+    orchestrator.start()
+
+    result = orchestrator.process_state_transition(
+        machine,
+        transition_candle(),
+    )
+
+    assert result.execution_result.action_results
+    assert tuple(
+        item.action for item in result.execution_result.action_results
+    ) == (
+        EnterAction(position=first),
+        EnterAction(position=second),
+    )
+    assert machine.current_state == "ACTIVE"
 
 def option_group(group_id: str) -> PositionGroup:
     selector = OptionSelector(

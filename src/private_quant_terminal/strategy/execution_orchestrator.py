@@ -28,6 +28,10 @@ from private_quant_terminal.strategy.rules import StrategyRule
 from private_quant_terminal.strategy.runtime_state import (
     StrategyRuntimeState,
 )
+from private_quant_terminal.strategy.state_machine import (
+    StateTransitionResult,
+    StrategyStateMachine,
+)
 from private_quant_terminal.strategy.session import StrategySession
 from private_quant_terminal.strategy.session_policy import (
     SessionPolicyEvaluator,
@@ -42,6 +46,14 @@ from private_quant_terminal.strategy.variables import (
     StrategyVariableStore,
     VariableMutation,
 )
+
+
+@dataclass(frozen=True)
+class StateTransitionOrchestrationResult:
+    """Result of evaluating and processing one semantic state transition."""
+
+    transition: StateTransitionResult | None
+    execution_result: ExecutionOrchestrationResult
 
 
 @dataclass(frozen=True)
@@ -245,6 +257,65 @@ class ExecutionOrchestrator:
             )
 
         return evaluation, result
+
+    def process_state_transition(
+        self,
+        state_machine: StrategyStateMachine,
+        candle: Candle,
+        *,
+        position: PositionContext | None = None,
+        variables: tuple[StrategyVariable, ...] = (),
+        session: StrategySession | None = None,
+    ) -> StateTransitionOrchestrationResult:
+        """Evaluate and execute one semantic state transition."""
+
+        if self.state is not StrategyExecutionState.RUNNING:
+            raise ValueError(
+                "Strategy execution must be RUNNING to process a state transition."
+            )
+
+        runtime_context = self.build_runtime_context(
+            market=MarketContext(
+                timestamp=candle.timestamp,
+                open=candle.open,
+                high=candle.high,
+                low=candle.low,
+                close=candle.close,
+                volume=candle.volume,
+            ),
+            position=position,
+            variables=variables,
+        )
+
+        transition = state_machine.evaluate(
+            (candle,),
+            0,
+            runtime_context,
+        )
+
+        if transition is None:
+            return StateTransitionOrchestrationResult(
+                transition=None,
+                execution_result=ExecutionOrchestrationResult(
+                    action_results=(),
+                    state=self.state,
+                ),
+            )
+
+        execution_result = self.process(
+            transition.transition.actions,
+            session=session,
+            context=runtime_context.session,
+            runtime_context=runtime_context,
+        )
+
+        if not execution_result.rejection_reasons:
+            state_machine.apply(transition)
+
+        return StateTransitionOrchestrationResult(
+            transition=transition,
+            execution_result=execution_result,
+        )
 
     def process(
         self,
