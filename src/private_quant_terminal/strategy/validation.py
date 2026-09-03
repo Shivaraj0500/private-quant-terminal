@@ -315,6 +315,74 @@ def _validate_condition(
         )
     )
 
+
+def _validate_rule_actions(
+    actions: tuple[object, ...],
+    *,
+    field: str,
+    issues: list[ValidationIssue],
+) -> None:
+    """Validate statically provable action identity conflicts."""
+
+    from private_quant_terminal.strategy.actions import (
+        EnterAction,
+        HedgeAction,
+        RollAction,
+    )
+
+    entered_groups: set[str] = set()
+
+    for index, action in enumerate(actions):
+        action_field = f"{field}[{index}]"
+
+        if isinstance(action, EnterAction):
+            group_id = action.position.group_id
+
+            if group_id in entered_groups:
+                issues.append(
+                    ValidationIssue(
+                        field=action_field,
+                        message=(
+                            "Rule contains multiple ENTER actions for the "
+                            f"same position group: {group_id}."
+                        ),
+                    )
+                )
+
+            entered_groups.add(group_id)
+            continue
+
+        if isinstance(action, RollAction):
+            source_group_id = action.group_id
+            replacement_group_id = action.replacement.group_id
+
+            if source_group_id == replacement_group_id:
+                issues.append(
+                    ValidationIssue(
+                        field=action_field,
+                        message=(
+                            "Roll action source and replacement must use "
+                            f"different position groups: {source_group_id}."
+                        ),
+                    )
+                )
+            continue
+
+        if isinstance(action, HedgeAction):
+            parent_group_id = action.group_id
+            hedge_group_id = action.hedge.group_id
+
+            if parent_group_id == hedge_group_id:
+                issues.append(
+                    ValidationIssue(
+                        field=action_field,
+                        message=(
+                            "Hedge action parent and hedge must use "
+                            f"different position groups: {parent_group_id}."
+                        ),
+                    )
+                )
+
 def validate_strategy_ir(strategy: StrategyIR) -> StrategyValidationResult:
     """Validate canonical StrategyIR semantic cross-references."""
 
@@ -383,6 +451,12 @@ def validate_strategy_ir(strategy: StrategyIR) -> StrategyValidationResult:
                         ),
                     )
                 )
+
+        _validate_rule_actions(
+            rule.actions,
+            field=f"rules.{rule.rule_id}.actions",
+            issues=issues,
+        )
 
         for action in rule.actions:
             field = f"rules.{rule.rule_id}.actions"

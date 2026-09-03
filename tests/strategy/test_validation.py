@@ -1,5 +1,8 @@
 from dataclasses import replace
 
+from private_quant_terminal.strategy.conditions import compare
+from private_quant_terminal.strategy.expressions import constant
+
 from private_quant_terminal.strategy import (
     ConditionOperator,
     ExecutionAssumptions,
@@ -13,6 +16,7 @@ from private_quant_terminal.strategy import (
     StrategyIR,
     StrategyTimeframe,
     TakeProfit,
+    ValidationIssue,
     TakeProfitType,
     validate_strategy,
     validate_strategy_ir,
@@ -198,6 +202,417 @@ def _make_ir_with_action(action, position_groups=()):
                     constant(0),
                 ),
                 actions=(action,),
+            ),
+        ),
+    )
+
+
+def test_ir_rejects_duplicate_enter_for_same_position_group() -> None:
+    from private_quant_terminal.strategy.actions import EnterAction
+    from private_quant_terminal.strategy.ir import StrategyIR
+    from private_quant_terminal.strategy.rules import StrategyRule
+    from private_quant_terminal.strategy.enums import StrategyStatus
+
+    group = _make_test_position_group("entry", "Entry")
+
+    strategy = StrategyIR(
+        strategy_id="duplicate-enter",
+        name="Duplicate Enter",
+        description="Duplicate enter validation test.",
+        version=1,
+        status=StrategyStatus.DRAFT,
+        instruments=("RELIANCE",),
+        timeframe=StrategyTimeframe.ONE_HOUR,
+        position_groups=(group,),
+        rules=(
+            StrategyRule(
+                condition=compare(
+                    constant(1),
+                    ">",
+                    constant(0),
+                ),
+                rule_id="duplicate-enter-rule",
+                name="Duplicate enter rule",
+                actions=(
+                    EnterAction(position=group),
+                    EnterAction(position=group),
+                ),
+            ),
+        ),
+    )
+
+    result = _validate_ir(strategy)
+
+    assert result.valid is False
+    assert result.issues == (
+        ValidationIssue(
+            field="rules.duplicate-enter-rule.actions[1]",
+            message=(
+                "Rule contains multiple ENTER actions for the same "
+                "position group: entry."
+            ),
+        ),
+    )
+
+
+def test_ir_rejects_roll_with_same_source_and_replacement_group() -> None:
+    from private_quant_terminal.strategy.actions import RollAction
+    from private_quant_terminal.strategy.enums import StrategyStatus
+    from private_quant_terminal.strategy.ir import StrategyIR
+    from private_quant_terminal.strategy.rules import StrategyRule
+
+    group = _make_test_position_group("entry", "Entry")
+
+    strategy = StrategyIR(
+        strategy_id="invalid-roll",
+        name="Invalid Roll",
+        description="Invalid roll validation test.",
+        version=1,
+        status=StrategyStatus.DRAFT,
+        instruments=("RELIANCE",),
+        timeframe=StrategyTimeframe.ONE_HOUR,
+        position_groups=(group,),
+        rules=(
+            StrategyRule(
+                condition=compare(
+                    constant(1),
+                    ">",
+                    constant(0),
+                ),
+                rule_id="invalid-roll-rule",
+                name="Invalid roll rule",
+                actions=(RollAction("entry", group),),
+            ),
+        ),
+    )
+
+    result = _validate_ir(strategy)
+
+    assert result.valid is False
+    assert result.issues == (
+        ValidationIssue(
+            field="rules.invalid-roll-rule.actions[0]",
+            message=(
+                "Roll action source and replacement must use different "
+                "position groups: entry."
+            ),
+        ),
+    )
+
+
+def test_ir_rejects_hedge_with_same_parent_and_hedge_group() -> None:
+    from private_quant_terminal.strategy.actions import HedgeAction
+    from private_quant_terminal.strategy.enums import StrategyStatus
+    from private_quant_terminal.strategy.ir import StrategyIR
+    from private_quant_terminal.strategy.rules import StrategyRule
+
+    group = _make_test_position_group("entry", "Entry")
+
+    strategy = StrategyIR(
+        strategy_id="invalid-hedge",
+        name="Invalid Hedge",
+        description="Invalid hedge validation test.",
+        version=1,
+        status=StrategyStatus.DRAFT,
+        instruments=("RELIANCE",),
+        timeframe=StrategyTimeframe.ONE_HOUR,
+        position_groups=(group,),
+        rules=(
+            StrategyRule(
+                condition=compare(
+                    constant(1),
+                    ">",
+                    constant(0),
+                ),
+                rule_id="invalid-hedge-rule",
+                name="Invalid hedge rule",
+                actions=(HedgeAction("entry", group),),
+            ),
+        ),
+    )
+
+    result = _validate_ir(strategy)
+
+    assert result.valid is False
+    assert result.issues == (
+        ValidationIssue(
+            field="rules.invalid-hedge-rule.actions[0]",
+            message=(
+                "Hedge action parent and hedge must use different "
+                "position groups: entry."
+            ),
+        ),
+    )
+
+
+def test_ir_accepts_enter_then_exit() -> None:
+    from private_quant_terminal.strategy.actions import EnterAction, ExitAction
+    from private_quant_terminal.strategy.enums import StrategyStatus
+    from private_quant_terminal.strategy.ir import StrategyIR
+    from private_quant_terminal.strategy.rules import StrategyRule
+
+    group = _make_test_position_group("entry", "Entry")
+
+    strategy = StrategyIR(
+        strategy_id="enter-exit",
+        name="Enter Exit",
+        description="Enter exit validation test.",
+        version=1,
+        status=StrategyStatus.DRAFT,
+        instruments=("RELIANCE",),
+        timeframe=StrategyTimeframe.ONE_HOUR,
+        position_groups=(group,),
+        rules=(
+            StrategyRule(
+                condition=compare(
+                    constant(1),
+                    ">",
+                    constant(0),
+                ),
+                rule_id="enter-exit-rule",
+                name="Enter exit rule",
+                actions=(
+                    EnterAction(position=group),
+                    ExitAction(group_id="entry"),
+                ),
+            ),
+        ),
+    )
+
+    assert _validate_ir(strategy).valid is True
+
+
+def test_ir_accepts_enter_then_modify() -> None:
+    from private_quant_terminal.strategy.actions import EnterAction, ModifyAction
+    from private_quant_terminal.strategy.enums import StrategyStatus
+    from private_quant_terminal.strategy.ir import StrategyIR
+    from private_quant_terminal.strategy.rules import StrategyRule
+
+    group = _make_test_position_group("entry", "Entry")
+
+    strategy = StrategyIR(
+        strategy_id="enter-modify",
+        name="Enter Modify",
+        description="Enter modify validation test.",
+        version=1,
+        status=StrategyStatus.DRAFT,
+        instruments=("RELIANCE",),
+        timeframe=StrategyTimeframe.ONE_HOUR,
+        position_groups=(group,),
+        rules=(
+            StrategyRule(
+                condition=compare(
+                    constant(1),
+                    ">",
+                    constant(0),
+                ),
+                rule_id="enter-modify-rule",
+                name="Enter modify rule",
+                actions=(
+                    EnterAction(position=group),
+                    ModifyAction("entry", (("quantity", 2),)),
+                ),
+            ),
+        ),
+    )
+
+    assert _validate_ir(strategy).valid is True
+
+
+def test_ir_accepts_enter_then_roll() -> None:
+    from private_quant_terminal.strategy.actions import EnterAction, RollAction
+    from private_quant_terminal.strategy.enums import StrategyStatus
+    from private_quant_terminal.strategy.ir import StrategyIR
+    from private_quant_terminal.strategy.rules import StrategyRule
+
+    entry = _make_test_position_group("entry", "Entry")
+    replacement = _make_test_position_group("replacement", "Replacement")
+
+    strategy = StrategyIR(
+        strategy_id="enter-roll",
+        name="Enter Roll",
+        description="Enter roll validation test.",
+        version=1,
+        status=StrategyStatus.DRAFT,
+        instruments=("RELIANCE",),
+        timeframe=StrategyTimeframe.ONE_HOUR,
+        position_groups=(entry, replacement),
+        rules=(
+            StrategyRule(
+                condition=compare(
+                    constant(1),
+                    ">",
+                    constant(0),
+                ),
+                rule_id="enter-roll-rule",
+                name="Enter roll rule",
+                actions=(
+                    EnterAction(position=entry),
+                    RollAction("entry", replacement),
+                ),
+            ),
+        ),
+    )
+
+    assert _validate_ir(strategy).valid is True
+
+
+def test_ir_accepts_enter_then_hedge() -> None:
+    from private_quant_terminal.strategy.actions import EnterAction, HedgeAction
+    from private_quant_terminal.strategy.enums import StrategyStatus
+    from private_quant_terminal.strategy.ir import StrategyIR
+    from private_quant_terminal.strategy.rules import StrategyRule
+
+    entry = _make_test_position_group("entry", "Entry")
+    hedge = _make_test_position_group("hedge", "Hedge")
+
+    strategy = StrategyIR(
+        strategy_id="enter-hedge",
+        name="Enter Hedge",
+        description="Enter hedge validation test.",
+        version=1,
+        status=StrategyStatus.DRAFT,
+        instruments=("RELIANCE",),
+        timeframe=StrategyTimeframe.ONE_HOUR,
+        position_groups=(entry, hedge),
+        rules=(
+            StrategyRule(
+                condition=compare(
+                    constant(1),
+                    ">",
+                    constant(0),
+                ),
+                rule_id="enter-hedge-rule",
+                name="Enter hedge rule",
+                actions=(
+                    EnterAction(position=entry),
+                    HedgeAction("entry", hedge),
+                ),
+            ),
+        ),
+    )
+
+    assert _validate_ir(strategy).valid is True
+
+
+def test_ir_accepts_modify_without_prior_enter() -> None:
+    from private_quant_terminal.strategy.actions import ModifyAction
+    from private_quant_terminal.strategy.enums import StrategyStatus
+    from private_quant_terminal.strategy.ir import StrategyIR
+    from private_quant_terminal.strategy.rules import StrategyRule
+
+    group = _make_test_position_group("entry", "Entry")
+
+    strategy = StrategyIR(
+        strategy_id="modify-only",
+        name="Modify Only",
+        description="Modify-only validation test.",
+        version=1,
+        status=StrategyStatus.DRAFT,
+        instruments=("RELIANCE",),
+        timeframe=StrategyTimeframe.ONE_HOUR,
+        position_groups=(group,),
+        rules=(
+            StrategyRule(
+                condition=compare(
+                    constant(1),
+                    ">",
+                    constant(0),
+                ),
+                rule_id="modify-only-rule",
+                name="Modify-only rule",
+                actions=(ModifyAction("entry", (("quantity", 2),)),),
+            ),
+        ),
+    )
+
+    assert _validate_ir(strategy).valid is True
+
+
+def test_ir_accepts_exit_without_prior_enter() -> None:
+    from private_quant_terminal.strategy.actions import ExitAction
+    from private_quant_terminal.strategy.enums import StrategyStatus
+    from private_quant_terminal.strategy.ir import StrategyIR
+    from private_quant_terminal.strategy.rules import StrategyRule
+
+    group = _make_test_position_group("entry", "Entry")
+
+    strategy = StrategyIR(
+        strategy_id="exit-only",
+        name="Exit Only",
+        description="Exit-only validation test.",
+        version=1,
+        status=StrategyStatus.DRAFT,
+        instruments=("RELIANCE",),
+        timeframe=StrategyTimeframe.ONE_HOUR,
+        position_groups=(group,),
+        rules=(
+            StrategyRule(
+                condition=compare(
+                    constant(1),
+                    ">",
+                    constant(0),
+                ),
+                rule_id="exit-only-rule",
+                name="Exit-only rule",
+                actions=(ExitAction(group_id="entry"),),
+            ),
+        ),
+    )
+
+    assert _validate_ir(strategy).valid is True
+
+
+def test_ir_reports_action_conflicts_in_deterministic_order() -> None:
+    from private_quant_terminal.strategy.actions import HedgeAction, RollAction
+    from private_quant_terminal.strategy.enums import StrategyStatus
+    from private_quant_terminal.strategy.ir import StrategyIR
+    from private_quant_terminal.strategy.rules import StrategyRule
+
+    group = _make_test_position_group("entry", "Entry")
+
+    strategy = StrategyIR(
+        strategy_id="multiple-conflicts",
+        name="Multiple Conflicts",
+        description="Deterministic action diagnostic test.",
+        version=1,
+        status=StrategyStatus.DRAFT,
+        instruments=("RELIANCE",),
+        timeframe=StrategyTimeframe.ONE_HOUR,
+        position_groups=(group,),
+        rules=(
+            StrategyRule(
+                condition=compare(
+                    constant(1),
+                    ">",
+                    constant(0),
+                ),
+                rule_id="multiple-conflicts-rule",
+                name="Multiple conflicts rule",
+                actions=(
+                    RollAction("entry", group),
+                    HedgeAction("entry", group),
+                ),
+            ),
+        ),
+    )
+
+    result = _validate_ir(strategy)
+
+    assert result.valid is False
+    assert result.issues == (
+        ValidationIssue(
+            field="rules.multiple-conflicts-rule.actions[0]",
+            message=(
+                "Roll action source and replacement must use different "
+                "position groups: entry."
+            ),
+        ),
+        ValidationIssue(
+            field="rules.multiple-conflicts-rule.actions[1]",
+            message=(
+                "Hedge action parent and hedge must use different "
+                "position groups: entry."
             ),
         ),
     )
