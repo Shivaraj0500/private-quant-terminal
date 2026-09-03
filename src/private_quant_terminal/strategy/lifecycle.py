@@ -1,6 +1,9 @@
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 
+from private_quant_terminal.strategy.compatibility import (
+    strategy_definition_to_ir,
+)
 from private_quant_terminal.strategy.enums import StrategyStatus
 from private_quant_terminal.strategy.ir import (
     StrategyDefinition,
@@ -12,6 +15,7 @@ from private_quant_terminal.strategy.repository import (
 from private_quant_terminal.strategy.validation import (
     StrategyValidationResult,
     validate_strategy,
+    validate_strategy_ir,
 )
 
 
@@ -57,6 +61,21 @@ class StrategyLifecycleService:
         version_number = self._repository.next_version(
             validated_strategy.strategy_id
         )
+
+        canonical_strategy = strategy_definition_to_ir(
+            validated_strategy,
+            version=version_number,
+        )
+        canonical_validation = validate_strategy_ir(canonical_strategy)
+
+        if not canonical_validation.valid:
+            raise ValueError(
+                "Cannot create strategy version: "
+                + "; ".join(
+                    f"{issue.field}: {issue.message}"
+                    for issue in canonical_validation.issues
+                )
+            )
 
         version = StrategyVersion(
             strategy_id=validated_strategy.strategy_id,
