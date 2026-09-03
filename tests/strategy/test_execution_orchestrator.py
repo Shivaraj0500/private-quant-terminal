@@ -269,6 +269,75 @@ def test_evaluate_and_process_filters_rules_by_current_state() -> None:
     ) is None
 
 
+
+def test_state_scoped_rule_reads_and_persists_strategy_variable() -> None:
+    from private_quant_terminal.strategy.variables import (
+        StrategyVariable,
+        VariableAssignment,
+        VariableScope,
+        VariableType,
+    )
+
+    variable_definition = StrategyVariable(
+        name="adjustment_count",
+        variable_type=VariableType.NUMBER,
+        scope=VariableScope.STRATEGY,
+        value=0,
+    )
+
+    group = option_group("state-variable-interaction")
+
+    rule = StrategyRule(
+        rule_id="state-variable-rule",
+        name="State Variable Rule",
+        condition=compare(
+            variable("adjustment_count"),
+            ComparisonOperator.LESS_THAN,
+            ConstantExpression(value=1.0),
+        ),
+        actions=(EnterAction(position=group),),
+        priority=10,
+        states=("ACTIVE",),
+        variable_assignments=(
+            VariableAssignment(
+                name="adjustment_count",
+                value=add(variable("adjustment_count"), constant(1)),
+            ),
+        ),
+    )
+
+    orchestrator = ExecutionOrchestrator(
+        variables=(variable_definition,),
+    )
+    orchestrator.start()
+
+    candles = (transition_candle(),)
+
+    first_evaluation, first_result = orchestrator.evaluate_and_process(
+        (rule,),
+        candles,
+        0,
+        current_state="ACTIVE",
+    )
+
+    assert tuple(
+        triggered.rule_id
+        for triggered in first_evaluation.triggered_rules
+    ) == ("state-variable-rule",)
+    assert len(first_result.action_results) == 1
+    assert orchestrator.variable_store.resolve("adjustment_count") == 1
+
+    second_evaluation, second_result = orchestrator.evaluate_and_process(
+        (rule,),
+        candles,
+        0,
+        current_state="ACTIVE",
+    )
+
+    assert second_evaluation.triggered_rules == ()
+    assert second_result.action_results == ()
+    assert orchestrator.variable_store.resolve("adjustment_count") == 1
+
 def option_group(group_id: str) -> PositionGroup:
     selector = OptionSelector(
         underlying="BANKNIFTY",
