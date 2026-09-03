@@ -1347,3 +1347,131 @@ def test_ir_accepts_nested_expression_with_declared_variable() -> None:
 
     assert result.valid is True
     assert result.issues == ()
+
+
+def _make_state_graph_ir(*, states, transitions=()):
+    from private_quant_terminal.strategy.enums import StrategyStatus
+
+    return StrategyIR(
+        strategy_id="state-graph-test",
+        name="State Graph Test",
+        description="State graph validation test.",
+        version=1,
+        status=StrategyStatus.DRAFT,
+        instruments=("RELIANCE",),
+        timeframe=StrategyTimeframe.ONE_HOUR,
+        position_groups=(
+            _make_test_position_group("entry", "Entry"),
+        ),
+        states=tuple(states),
+        transitions=tuple(transitions),
+    )
+
+
+def _make_state_graph_transition(
+    transition_id: str,
+    from_state: str,
+    to_state: str,
+):
+    from private_quant_terminal.strategy.actions import ModifyAction
+    from private_quant_terminal.strategy.states import StateTransition
+
+    return StateTransition(
+        transition_id=transition_id,
+        from_state=from_state,
+        to_state=to_state,
+        condition=compare(constant(1), ">", constant(0)),
+        actions=(
+            ModifyAction("entry", (("quantity", 1),)),
+        ),
+    )
+
+
+def test_ir_accepts_reachable_state_graph() -> None:
+    from private_quant_terminal.strategy.states import StrategyState
+
+    strategy = _make_state_graph_ir(
+        states=(
+            StrategyState("WAITING", "Waiting", initial=True),
+            StrategyState("ACTIVE", "Active"),
+            StrategyState("DONE", "Done", terminal=True),
+        ),
+        transitions=(
+            _make_state_graph_transition("start", "WAITING", "ACTIVE"),
+            _make_state_graph_transition("finish", "ACTIVE", "DONE"),
+        ),
+    )
+
+    result = validate_strategy_ir(strategy)
+
+    assert result.valid is True
+    assert result.issues == ()
+
+
+def test_ir_rejects_unreachable_state() -> None:
+    from private_quant_terminal.strategy.states import StrategyState
+
+    strategy = _make_state_graph_ir(
+        states=(
+            StrategyState("WAITING", "Waiting", initial=True),
+            StrategyState("ACTIVE", "Active"),
+            StrategyState("ORPHAN", "Orphan"),
+        ),
+        transitions=(
+            _make_state_graph_transition("start", "WAITING", "ACTIVE"),
+        ),
+    )
+
+    result = validate_strategy_ir(strategy)
+
+    assert result.valid is False
+    assert result.issues == (
+        ValidationIssue(
+            field="states.ORPHAN",
+            message="State is unreachable from the declared initial state.",
+        ),
+    )
+
+
+def test_ir_allows_cycles_in_state_graph() -> None:
+    from private_quant_terminal.strategy.states import StrategyState
+
+    strategy = _make_state_graph_ir(
+        states=(
+            StrategyState("ACTIVE", "Active", initial=True),
+            StrategyState("ADJUSTMENT", "Adjustment"),
+        ),
+        transitions=(
+            _make_state_graph_transition(
+                "adjust",
+                "ACTIVE",
+                "ADJUSTMENT",
+            ),
+            _make_state_graph_transition(
+                "resume",
+                "ADJUSTMENT",
+                "ACTIVE",
+            ),
+        ),
+    )
+
+    result = validate_strategy_ir(strategy)
+
+    assert result.valid is True
+    assert result.issues == ()
+
+
+def test_ir_skips_reachability_without_initial_state() -> None:
+    from private_quant_terminal.strategy.states import StrategyState
+
+    strategy = _make_state_graph_ir(
+        states=(
+            StrategyState("STATE_A", "State A"),
+            StrategyState("STATE_B", "State B"),
+        ),
+    )
+
+    result = validate_strategy_ir(strategy)
+
+    assert result.valid is True
+    assert result.issues == ()

@@ -383,6 +383,68 @@ def _validate_rule_actions(
                     )
                 )
 
+
+def _validate_state_graph(
+    strategy: StrategyIR,
+    issues: list[ValidationIssue],
+) -> None:
+    """Validate reachability of declared semantic states."""
+
+    if not strategy.states:
+        return
+
+    initial_states = tuple(
+        state.state_id
+        for state in strategy.states
+        if state.initial
+    )
+
+    # State machines without an initial state are supported by the current
+    # runtime contract, so reachability cannot be evaluated in that case.
+    if not initial_states:
+        return
+
+    adjacency: dict[str, list[str]] = {
+        state.state_id: []
+        for state in strategy.states
+    }
+
+    for transition in strategy.transitions:
+        if not transition.enabled:
+            continue
+
+        if (
+            transition.from_state in adjacency
+            and transition.to_state in adjacency
+        ):
+            adjacency[transition.from_state].append(
+                transition.to_state
+            )
+
+    reachable: set[str] = set(initial_states)
+    pending = list(initial_states)
+
+    while pending:
+        state_id = pending.pop()
+
+        for target_state in adjacency[state_id]:
+            if target_state not in reachable:
+                reachable.add(target_state)
+                pending.append(target_state)
+
+    for state in strategy.states:
+        if state.state_id not in reachable:
+            issues.append(
+                ValidationIssue(
+                    field=f"states.{state.state_id}",
+                    message=(
+                        "State is unreachable from the declared initial "
+                        "state."
+                    ),
+                )
+            )
+
+
 def validate_strategy_ir(strategy: StrategyIR) -> StrategyValidationResult:
     """Validate canonical StrategyIR semantic cross-references."""
 
@@ -395,6 +457,7 @@ def validate_strategy_ir(strategy: StrategyIR) -> StrategyValidationResult:
     )
 
     issues: list[ValidationIssue] = []
+    _validate_state_graph(strategy, issues)
 
     declared_group_ids = {
         group.group_id
