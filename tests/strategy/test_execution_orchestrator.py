@@ -491,6 +491,154 @@ def test_state_and_variable_compose_across_adjustment_cycle() -> None:
     assert orchestrator.variable_store.resolve("observed_count") == 1
 
 
+def test_stateful_modify_keeps_position_and_enters_post_modify_state() -> None:
+    from private_quant_terminal.strategy.actions import ModifyAction
+    from private_quant_terminal.strategy.variables import (
+        StrategyVariable,
+        VariableAssignment,
+        VariableScope,
+        VariableType,
+    )
+
+    modify_count = StrategyVariable(
+        name="modify_count",
+        variable_type=VariableType.NUMBER,
+        scope=VariableScope.STRATEGY,
+        value=0,
+    )
+
+    primary = option_group("stateful-modify-primary")
+
+    entry_rule = StrategyRule(
+        rule_id="entry",
+        name="Entry",
+        condition=compare(
+            PriceExpression(field=PriceField.CLOSE),
+            ComparisonOperator.GREATER_THAN,
+            ConstantExpression(value=100.0),
+        ),
+        actions=(EnterAction(position=primary),),
+        priority=20,
+        states=("ACTIVE",),
+    )
+
+    post_modify_rule = StrategyRule(
+        rule_id="post-modify",
+        name="Post Modify",
+        condition=compare(
+            PriceExpression(field=PriceField.CLOSE),
+            ComparisonOperator.GREATER_THAN,
+            ConstantExpression(value=100.0),
+        ),
+        actions=(),
+        priority=10,
+        states=("POST_MODIFY",),
+        variable_assignments=(
+            VariableAssignment(
+                name="modify_count",
+                value=add(variable("modify_count"), constant(1)),
+            ),
+        ),
+    )
+
+    machine = StrategyStateMachine(
+        states=(
+            StrategyState(
+                state_id="ACTIVE",
+                name="Active",
+                initial=True,
+            ),
+            StrategyState(
+                state_id="POST_MODIFY",
+                name="Post Modify",
+            ),
+        ),
+        transitions=(
+            StateTransition(
+                transition_id="modify",
+                from_state="ACTIVE",
+                to_state="POST_MODIFY",
+                condition=compare(
+                    PriceExpression(field=PriceField.CLOSE),
+                    ComparisonOperator.GREATER_THAN,
+                    ConstantExpression(value=100.0),
+                ),
+                actions=(
+                    ModifyAction(
+                        group_id=primary.group_id,
+                        changes=(
+                            ("stop_loss_percent", 25.0),
+                            ("take_profit_percent", 50.0),
+                        ),
+                    ),
+                ),
+                priority=10,
+            ),
+        ),
+    )
+
+    orchestrator = ExecutionOrchestrator(
+        variables=(modify_count,),
+    )
+    orchestrator.start()
+
+    candle = transition_candle()
+
+    evaluation, result = orchestrator.evaluate_and_process(
+        (entry_rule, post_modify_rule),
+        (candle,),
+        0,
+        current_state=machine.current_state,
+    )
+
+    assert tuple(
+        triggered.rule_id
+        for triggered in evaluation.triggered_rules
+    ) == ("entry",)
+    assert result.action_results
+    assert result.action_results[0].action == EnterAction(position=primary)
+    assert orchestrator.variable_store.resolve("modify_count") == 0
+
+    transition_result = orchestrator.process_state_transition(
+        machine,
+        candle,
+    )
+
+    assert transition_result.transition is not None
+    assert transition_result.transition.transition.transition_id == "modify"
+    assert transition_result.transition.transition.from_state == "ACTIVE"
+    assert transition_result.transition.transition.to_state == "POST_MODIFY"
+    assert transition_result.execution_result.action_results
+
+    primary_snapshot = orchestrator.action_processor.get_state(primary.group_id)
+
+    assert primary_snapshot is not None
+    assert primary_snapshot.state.name == "OPEN"
+    assert (
+        orchestrator.action_processor.modifications(primary.group_id)
+        == (
+            ("stop_loss_percent", 25.0),
+            ("take_profit_percent", 50.0),
+        )
+    )
+    assert machine.current_state == "POST_MODIFY"
+
+    evaluation, result = orchestrator.evaluate_and_process(
+        (entry_rule, post_modify_rule),
+        (candle,),
+        0,
+        current_state=machine.current_state,
+    )
+
+    assert tuple(
+        triggered.rule_id
+        for triggered in evaluation.triggered_rules
+    ) == ("post-modify",)
+    assert result.action_results == ()
+    assert evaluation.variable_mutations
+    assert orchestrator.variable_store.resolve("modify_count") == 1
+
+
 def test_stateful_hedge_keeps_parent_and_enters_post_hedge_state() -> None:
     from private_quant_terminal.strategy.actions import HedgeAction
     from private_quant_terminal.strategy.state_machine import StrategyStateMachine
