@@ -5,7 +5,7 @@ from private_quant_terminal.strategy.enums import (
     StopLossType,
     TakeProfitType,
 )
-from private_quant_terminal.strategy.ir import StrategyDefinition
+from private_quant_terminal.strategy.ir import StrategyDefinition, StrategyIR
 
 
 @dataclass(frozen=True)
@@ -173,6 +173,115 @@ def validate_strategy(
                 message="Transaction cost cannot be negative.",
             )
         )
+
+    return StrategyValidationResult(
+        valid=not issues,
+        issues=tuple(issues),
+    )
+
+
+def validate_strategy_ir(strategy: StrategyIR) -> StrategyValidationResult:
+    """Validate canonical StrategyIR semantic cross-references."""
+
+    from private_quant_terminal.strategy.actions import (
+        EnterAction,
+        ExitAction,
+        HedgeAction,
+        ModifyAction,
+        RollAction,
+    )
+
+    issues: list[ValidationIssue] = []
+
+    declared_group_ids = {
+        group.group_id
+        for group in strategy.position_groups
+    }
+
+    for rule in strategy.rules:
+        for action in rule.actions:
+            field = f"rules.{rule.rule_id}.actions"
+
+            if isinstance(action, EnterAction):
+                group_id = action.position.group_id
+
+                if group_id not in declared_group_ids:
+                    issues.append(
+                        ValidationIssue(
+                            field=field,
+                            message=(
+                                "Enter action references undeclared "
+                                f"position group: {group_id}."
+                            ),
+                        )
+                    )
+
+            elif isinstance(action, (ExitAction, ModifyAction)):
+                group_id = action.group_id
+
+                if group_id not in declared_group_ids:
+                    issues.append(
+                        ValidationIssue(
+                            field=field,
+                            message=(
+                                "Action references undeclared position "
+                                f"group: {group_id}."
+                            ),
+                        )
+                    )
+
+            elif isinstance(action, RollAction):
+                source_group_id = action.group_id
+                replacement_group_id = action.replacement.group_id
+
+                if source_group_id not in declared_group_ids:
+                    issues.append(
+                        ValidationIssue(
+                            field=field,
+                            message=(
+                                "Roll action references undeclared source "
+                                f"position group: {source_group_id}."
+                            ),
+                        )
+                    )
+
+                if replacement_group_id not in declared_group_ids:
+                    issues.append(
+                        ValidationIssue(
+                            field=field,
+                            message=(
+                                "Roll action replacement references "
+                                "undeclared position group: "
+                                f"{replacement_group_id}."
+                            ),
+                        )
+                    )
+
+            elif isinstance(action, HedgeAction):
+                parent_group_id = action.group_id
+                hedge_group_id = action.hedge.group_id
+
+                if parent_group_id not in declared_group_ids:
+                    issues.append(
+                        ValidationIssue(
+                            field=field,
+                            message=(
+                                "Hedge action references undeclared parent "
+                                f"position group: {parent_group_id}."
+                            ),
+                        )
+                    )
+
+                if hedge_group_id not in declared_group_ids:
+                    issues.append(
+                        ValidationIssue(
+                            field=field,
+                            message=(
+                                "Hedge action references undeclared "
+                                f"position group: {hedge_group_id}."
+                            ),
+                        )
+                    )
 
     return StrategyValidationResult(
         valid=not issues,

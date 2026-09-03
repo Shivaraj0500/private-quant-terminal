@@ -40,6 +40,7 @@ from private_quant_terminal.strategy.validation import (
     StrategyValidationResult,
     ValidationIssue,
     validate_strategy,
+    validate_strategy_ir,
 )
 
 __all__ = [
@@ -70,4 +71,5 @@ __all__ = [
     "strategy_definition_to_ir",
     "strategy_hash",
     "validate_strategy",
+    "validate_strategy_ir",
 ]
