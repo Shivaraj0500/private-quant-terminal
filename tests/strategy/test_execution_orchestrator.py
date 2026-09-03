@@ -1344,6 +1344,44 @@ def test_orchestrator_applies_variable_mutations_to_store() -> None:
     assert orchestrator.variable_store.resolve("roll_count") == 1
 
 
+def test_orchestrator_applies_multiple_variable_mutations_in_evaluation_order() -> None:
+    from private_quant_terminal.strategy.variables import (
+        StrategyVariable,
+        VariableMutation,
+        VariableScope,
+        VariableType,
+    )
+
+    variable = StrategyVariable(
+        name="roll_count",
+        variable_type=VariableType.NUMBER,
+        scope=VariableScope.STRATEGY,
+        value=0,
+    )
+
+    orchestrator = ExecutionOrchestrator(
+        variables=(variable,),
+    )
+
+    high_priority_mutation = VariableMutation(
+        name="roll_count",
+        value=10,
+    )
+    low_priority_mutation = VariableMutation(
+        name="roll_count",
+        value=20,
+    )
+
+    mutations = (
+        high_priority_mutation,
+        low_priority_mutation,
+    )
+
+    orchestrator._apply_variable_mutations(mutations)
+
+    assert orchestrator.variable_store.resolve("roll_count") == 20
+
+
 def test_evaluate_and_process_applies_variable_mutation_after_approval() -> None:
     from datetime import UTC, datetime
 
