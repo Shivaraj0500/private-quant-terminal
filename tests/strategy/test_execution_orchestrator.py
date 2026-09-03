@@ -490,6 +490,155 @@ def test_state_and_variable_compose_across_adjustment_cycle() -> None:
     assert orchestrator.variable_store.resolve("adjustment_count") == 1
     assert orchestrator.variable_store.resolve("observed_count") == 1
 
+
+def test_stateful_roll_moves_position_and_enters_post_roll_state() -> None:
+    from private_quant_terminal.strategy.actions import RollAction
+    from private_quant_terminal.strategy.state_machine import StrategyStateMachine
+    from private_quant_terminal.strategy.states import (
+        StateTransition,
+        StrategyState,
+    )
+    from private_quant_terminal.strategy.variables import (
+        MarketContext,
+        StrategyVariable,
+        VariableAssignment,
+        VariableScope,
+        VariableType,
+    )
+
+    roll_count = StrategyVariable(
+        name="roll_count",
+        variable_type=VariableType.NUMBER,
+        scope=VariableScope.STRATEGY,
+        value=0,
+    )
+
+    original = option_group("stateful-roll-original")
+    replacement = option_group("stateful-roll-replacement")
+
+    entry_rule = StrategyRule(
+        rule_id="entry",
+        name="Entry",
+        condition=compare(
+            PriceExpression(field=PriceField.CLOSE),
+            ComparisonOperator.GREATER_THAN,
+            ConstantExpression(value=100.0),
+        ),
+        actions=(EnterAction(position=original),),
+        priority=20,
+        states=("ACTIVE",),
+    )
+
+    post_roll_rule = StrategyRule(
+        rule_id="post-roll",
+        name="Post Roll",
+        condition=compare(
+            PriceExpression(field=PriceField.CLOSE),
+            ComparisonOperator.GREATER_THAN,
+            ConstantExpression(value=100.0),
+        ),
+        actions=(),
+        priority=10,
+        states=("POST_ROLL",),
+        variable_assignments=(
+            VariableAssignment(
+                name="roll_count",
+                value=add(variable("roll_count"), constant(1)),
+            ),
+        ),
+    )
+
+    machine = StrategyStateMachine(
+        states=(
+            StrategyState(
+                state_id="ACTIVE",
+                name="Active",
+                initial=True,
+            ),
+            StrategyState(
+                state_id="POST_ROLL",
+                name="Post Roll",
+            ),
+        ),
+        transitions=(
+            StateTransition(
+                transition_id="roll",
+                from_state="ACTIVE",
+                to_state="POST_ROLL",
+                condition=compare(
+                    PriceExpression(field=PriceField.CLOSE),
+                    ComparisonOperator.GREATER_THAN,
+                    ConstantExpression(value=100.0),
+                ),
+                actions=(
+                    RollAction(
+                        group_id=original.group_id,
+                        replacement=replacement,
+                    ),
+                ),
+                priority=10,
+            ),
+        ),
+    )
+
+    orchestrator = ExecutionOrchestrator(
+        variables=(roll_count,),
+    )
+    orchestrator.start()
+
+    candle = transition_candle()
+
+    evaluation, result = orchestrator.evaluate_and_process(
+        (entry_rule, post_roll_rule),
+        (candle,),
+        0,
+        current_state=machine.current_state,
+    )
+
+    assert tuple(
+        triggered.rule_id
+        for triggered in evaluation.triggered_rules
+    ) == ("entry",)
+    assert len(result.action_results) == 1
+    assert orchestrator.action_processor.get_position(
+        original.group_id,
+    ) == original
+
+    transition_result = orchestrator.process_state_transition(
+        machine,
+        candle,
+    )
+
+    assert transition_result.transition is not None
+    assert transition_result.transition.from_state == "ACTIVE"
+    assert transition_result.transition.to_state == "POST_ROLL"
+    assert (
+        transition_result.transition.transition.transition_id
+        == "roll"
+    )
+    assert machine.current_state == "POST_ROLL"
+
+    assert orchestrator.action_processor.get_position(
+        original.group_id,
+    ) is None
+    assert orchestrator.action_processor.get_position(
+        replacement.group_id,
+    ) == replacement
+
+    evaluation, result = orchestrator.evaluate_and_process(
+        (entry_rule, post_roll_rule),
+        (candle,),
+        0,
+        current_state=machine.current_state,
+    )
+
+    assert tuple(
+        triggered.rule_id
+        for triggered in evaluation.triggered_rules
+    ) == ("post-roll",)
+    assert result.action_results == ()
+    assert orchestrator.variable_store.resolve("roll_count") == 1
+
 def option_group(group_id: str) -> PositionGroup:
     selector = OptionSelector(
         underlying="BANKNIFTY",
