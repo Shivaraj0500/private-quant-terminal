@@ -2,11 +2,11 @@ import hashlib
 import json
 from dataclasses import asdict
 
-from private_quant_terminal.strategy.ir import StrategyDefinition
+from private_quant_terminal.strategy.ir import StrategyDefinition, StrategyIR
 
 
 def canonical_strategy_dict(
-    strategy: StrategyDefinition,
+    strategy: StrategyDefinition | StrategyIR,
 ) -> dict[str, object]:
     """Return the strategy as a deterministic, JSON-compatible mapping."""
 
@@ -14,7 +14,7 @@ def canonical_strategy_dict(
 
 
 def canonical_strategy_json(
-    strategy: StrategyDefinition,
+    strategy: StrategyDefinition | StrategyIR,
 ) -> str:
     """Return deterministic JSON for a strategy definition."""
 
@@ -26,7 +26,7 @@ def canonical_strategy_json(
     )
 
 
-def strategy_hash(strategy: StrategyDefinition) -> str:
+def strategy_hash(strategy: StrategyDefinition | StrategyIR) -> str:
     """Return the SHA-256 identity of a strategy definition."""
 
     payload = canonical_strategy_json(strategy).encode("utf-8")
