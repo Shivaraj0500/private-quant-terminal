@@ -1,9 +1,25 @@
 from dataclasses import dataclass
 
+from private_quant_terminal.strategy.conditions import (
+    ComparisonCondition,
+    CrossingCondition,
+    LogicalCondition,
+)
 from private_quant_terminal.strategy.enums import (
     PositionSizingMethod,
     StopLossType,
     TakeProfitType,
+)
+from private_quant_terminal.strategy.expressions import (
+    ArithmeticExpression,
+    ConstantExpression,
+    Expression,
+    IndicatorExpression,
+    PositionExpression,
+    PriceExpression,
+    TimeExpression,
+    UnaryExpression,
+    VariableExpression,
 )
 from private_quant_terminal.strategy.ir import StrategyDefinition, StrategyIR
 
@@ -180,6 +196,125 @@ def validate_strategy(
     )
 
 
+
+def _validate_expression(
+    expression: Expression,
+    *,
+    field: str,
+    declared_variable_names: set[str],
+    issues: list[ValidationIssue],
+) -> None:
+    """Recursively validate an expression tree and its variable references."""
+
+    if isinstance(expression, ConstantExpression):
+        return
+
+    if isinstance(expression, PriceExpression):
+        return
+
+    if isinstance(expression, IndicatorExpression):
+        return
+
+    if isinstance(expression, TimeExpression):
+        return
+
+    if isinstance(expression, PositionExpression):
+        return
+
+    if isinstance(expression, VariableExpression):
+        normalized_name = expression.name.strip().lower()
+
+        if normalized_name not in declared_variable_names:
+            issues.append(
+                ValidationIssue(
+                    field=field,
+                    message=(
+                        "Expression references undeclared strategy variable: "
+                        f"{expression.name}."
+                    ),
+                )
+            )
+        return
+
+    if isinstance(expression, ArithmeticExpression):
+        _validate_expression(
+            expression.left,
+            field=f"{field}.left",
+            declared_variable_names=declared_variable_names,
+            issues=issues,
+        )
+        _validate_expression(
+            expression.right,
+            field=f"{field}.right",
+            declared_variable_names=declared_variable_names,
+            issues=issues,
+        )
+        return
+
+    if isinstance(expression, UnaryExpression):
+        _validate_expression(
+            expression.operand,
+            field=f"{field}.operand",
+            declared_variable_names=declared_variable_names,
+            issues=issues,
+        )
+        return
+
+    issues.append(
+        ValidationIssue(
+            field=field,
+            message=(
+                "Unsupported expression type: "
+                f"{type(expression).__name__}."
+            ),
+        )
+    )
+
+
+def _validate_condition(
+    condition: object,
+    *,
+    field: str,
+    declared_variable_names: set[str],
+    issues: list[ValidationIssue],
+) -> None:
+    """Recursively validate a condition and all nested expressions."""
+
+    if isinstance(condition, (ComparisonCondition, CrossingCondition)):
+        _validate_expression(
+            condition.left,
+            field=f"{field}.left",
+            declared_variable_names=declared_variable_names,
+            issues=issues,
+        )
+        _validate_expression(
+            condition.right,
+            field=f"{field}.right",
+            declared_variable_names=declared_variable_names,
+            issues=issues,
+        )
+        return
+
+    if isinstance(condition, LogicalCondition):
+        for index, child in enumerate(condition.conditions):
+            _validate_condition(
+                child,
+                field=f"{field}.conditions[{index}]",
+                declared_variable_names=declared_variable_names,
+                issues=issues,
+            )
+        return
+
+    issues.append(
+        ValidationIssue(
+            field=field,
+            message=(
+                "Unsupported condition type: "
+                f"{type(condition).__name__}."
+            ),
+        )
+    )
+
 def validate_strategy_ir(strategy: StrategyIR) -> StrategyValidationResult:
     """Validate canonical StrategyIR semantic cross-references."""
 
@@ -198,7 +333,57 @@ def validate_strategy_ir(strategy: StrategyIR) -> StrategyValidationResult:
         for group in strategy.position_groups
     }
 
+    declared_variable_names = {
+        variable.name.strip().lower()
+        for variable in strategy.variables
+    }
+
     for rule in strategy.rules:
+        _validate_condition(
+            rule.condition,
+            field=f"rules.{rule.rule_id}.condition",
+            declared_variable_names=declared_variable_names,
+            issues=issues,
+        )
+
+        for assignment in rule.variable_assignments:
+            assignment_name = assignment.name.strip().lower()
+
+            if assignment_name not in declared_variable_names:
+                issues.append(
+                    ValidationIssue(
+                        field=f"rules.{rule.rule_id}.variable_assignments",
+                        message=(
+                            "Variable assignment references undeclared "
+                            f"strategy variable: {assignment.name}."
+                        ),
+                    )
+                )
+
+            _validate_expression(
+                assignment.value,
+                field=(
+                    f"rules.{rule.rule_id}."
+                    f"variable_assignments.{assignment.name}"
+                ),
+                declared_variable_names=declared_variable_names,
+                issues=issues,
+            )
+
+        for mutation in rule.variable_mutations:
+            mutation_name = mutation.name.strip().lower()
+
+            if mutation_name not in declared_variable_names:
+                issues.append(
+                    ValidationIssue(
+                        field=f"rules.{rule.rule_id}.variable_mutations",
+                        message=(
+                            "Variable mutation references undeclared "
+                            f"strategy variable: {mutation.name}."
+                        ),
+                    )
+                )
+
         for action in rule.actions:
             field = f"rules.{rule.rule_id}.actions"
 

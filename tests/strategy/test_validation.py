@@ -404,3 +404,531 @@ def test_ir_accepts_actions_referencing_declared_position_groups() -> None:
 
         assert result.valid is True
         assert result.issues == ()
+
+
+def _make_ir_with_condition(
+    condition,
+    *,
+    variables=(),
+    variable_assignments=(),
+    variable_mutations=(),
+):
+    from private_quant_terminal.strategy.actions import EnterAction
+    from private_quant_terminal.strategy.enums import StrategyStatus
+    from private_quant_terminal.strategy.rules import StrategyRule
+
+    position_group = _make_test_position_group(
+        "expression-test-group",
+        "Expression test group",
+    )
+
+    return StrategyIR(
+        strategy_id="strategy-ir-expression-validation",
+        name="IR Expression Validation",
+        description="Expression semantic validation test.",
+        version=1,
+        status=StrategyStatus.DRAFT,
+        instruments=("RELIANCE",),
+        timeframe=StrategyTimeframe.ONE_HOUR,
+        variables=tuple(variables),
+        position_groups=(position_group,),
+        rules=(
+            StrategyRule(
+                rule_id="expression-rule",
+                name="Expression rule",
+                condition=condition,
+                actions=(
+                    EnterAction(position=position_group),
+                ),
+                variable_assignments=tuple(variable_assignments),
+                variable_mutations=tuple(variable_mutations),
+            ),
+        ),
+    )
+
+
+def _number_variable(name: str):
+    from private_quant_terminal.strategy.variables import (
+        StrategyVariable,
+        VariableScope,
+        VariableType,
+    )
+
+    return StrategyVariable(
+        name=name,
+        variable_type=VariableType.NUMBER,
+        scope=VariableScope.STRATEGY,
+        value=0.0,
+    )
+
+
+def test_ir_accepts_declared_variable_in_condition() -> None:
+    from private_quant_terminal.strategy.conditions import compare
+    from private_quant_terminal.strategy.expressions import (
+        price,
+        variable,
+        PriceField,
+    )
+
+    strategy = _make_ir_with_condition(
+        compare(
+            price(PriceField.CLOSE),
+            ">",
+            variable("threshold"),
+        ),
+        variables=(_number_variable("threshold"),),
+    )
+
+    result = _validate_ir(strategy)
+
+    assert result.valid is True
+    assert result.issues == ()
+
+
+def test_ir_rejects_undeclared_variable_in_condition() -> None:
+    from private_quant_terminal.strategy.conditions import compare
+    from private_quant_terminal.strategy.expressions import (
+        price,
+        variable,
+        PriceField,
+    )
+
+    strategy = _make_ir_with_condition(
+        compare(
+            price(PriceField.CLOSE),
+            ">",
+            variable("missing_threshold"),
+        ),
+    )
+
+    result = _validate_ir(strategy)
+
+    assert result.valid is False
+    assert any(
+        "missing_threshold" in issue.message
+        for issue in result.issues
+    )
+
+
+def test_ir_rejects_undeclared_variable_nested_in_arithmetic() -> None:
+    from private_quant_terminal.strategy.conditions import compare
+    from private_quant_terminal.strategy.expressions import (
+        arithmetic,
+        constant,
+        price,
+        variable,
+        PriceField,
+    )
+
+    strategy = _make_ir_with_condition(
+        compare(
+            price(PriceField.CLOSE),
+            ">",
+            arithmetic(
+                variable("missing_threshold"),
+                "+",
+                constant(10),
+            ),
+        ),
+    )
+
+    result = _validate_ir(strategy)
+
+    assert result.valid is False
+    assert any(
+        "missing_threshold" in issue.message
+        for issue in result.issues
+    )
+
+
+def test_ir_rejects_undeclared_variable_in_crossover() -> None:
+    from private_quant_terminal.strategy.conditions import cross_above
+    from private_quant_terminal.strategy.expressions import (
+        price,
+        variable,
+        PriceField,
+    )
+
+    strategy = _make_ir_with_condition(
+        cross_above(
+            price(PriceField.CLOSE),
+            variable("missing_threshold"),
+        ),
+    )
+
+    result = _validate_ir(strategy)
+
+    assert result.valid is False
+    assert any(
+        "missing_threshold" in issue.message
+        for issue in result.issues
+    )
+
+
+def test_ir_rejects_undeclared_variable_in_nested_logical_condition() -> None:
+    from private_quant_terminal.strategy.conditions import all_of, compare
+    from private_quant_terminal.strategy.expressions import (
+        constant,
+        price,
+        variable,
+        PriceField,
+    )
+
+    strategy = _make_ir_with_condition(
+        all_of(
+            compare(
+                price(PriceField.CLOSE),
+                ">",
+                constant(100),
+            ),
+            all_of(
+                compare(
+                    variable("missing_threshold"),
+                    ">",
+                    constant(10),
+                ),
+            ),
+        ),
+    )
+
+    result = _validate_ir(strategy)
+
+    assert result.valid is False
+    assert any(
+        "missing_threshold" in issue.message
+        for issue in result.issues
+    )
+
+
+def test_ir_variable_references_are_case_insensitive() -> None:
+    from private_quant_terminal.strategy.conditions import compare
+    from private_quant_terminal.strategy.expressions import (
+        constant,
+        variable,
+    )
+
+    strategy = _make_ir_with_condition(
+        compare(
+            variable("THRESHOLD"),
+            ">",
+            constant(0),
+        ),
+        variables=(_number_variable("threshold"),),
+    )
+
+    result = _validate_ir(strategy)
+
+    assert result.valid is True
+    assert result.issues == ()
+
+
+def test_ir_rejects_undeclared_variable_assignment_target() -> None:
+    from private_quant_terminal.strategy.conditions import compare
+    from private_quant_terminal.strategy.expressions import constant
+    from private_quant_terminal.strategy.variables import VariableAssignment
+
+    strategy = _make_ir_with_condition(
+        compare(
+            constant(1),
+            ">",
+            constant(0),
+        ),
+        variable_assignments=(
+            VariableAssignment(
+                name="missing_variable",
+                value=constant(10),
+            ),
+        ),
+    )
+
+    result = _validate_ir(strategy)
+
+    assert result.valid is False
+    assert any(
+        "missing_variable" in issue.message
+        for issue in result.issues
+    )
+
+
+def test_ir_rejects_undeclared_variable_inside_assignment_expression() -> None:
+    from private_quant_terminal.strategy.conditions import compare
+    from private_quant_terminal.strategy.expressions import (
+        arithmetic,
+        constant,
+        variable,
+    )
+    from private_quant_terminal.strategy.variables import VariableAssignment
+
+    strategy = _make_ir_with_condition(
+        compare(
+            constant(1),
+            ">",
+            constant(0),
+        ),
+        variables=(_number_variable("target"),),
+        variable_assignments=(
+            VariableAssignment(
+                name="target",
+                value=arithmetic(
+                    variable("missing_variable"),
+                    "+",
+                    constant(1),
+                ),
+            ),
+        ),
+    )
+
+    result = _validate_ir(strategy)
+
+    assert result.valid is False
+    assert any(
+        "missing_variable" in issue.message
+        for issue in result.issues
+    )
+
+
+def test_ir_rejects_undeclared_variable_mutation_target() -> None:
+    from private_quant_terminal.strategy.conditions import compare
+    from private_quant_terminal.strategy.expressions import constant
+    from private_quant_terminal.strategy.variables import VariableMutation
+
+    strategy = _make_ir_with_condition(
+        compare(
+            constant(1),
+            ">",
+            constant(0),
+        ),
+        variable_mutations=(
+            VariableMutation(
+                name="missing_variable",
+                value=10,
+            ),
+        ),
+    )
+
+    result = _validate_ir(strategy)
+
+    assert result.valid is False
+    assert any(
+        "missing_variable" in issue.message
+        for issue in result.issues
+    )
+
+
+def test_ir_expression_validation_issue_order_is_deterministic() -> None:
+    from private_quant_terminal.strategy.conditions import compare
+    from private_quant_terminal.strategy.expressions import variable
+
+    strategy = _make_ir_with_condition(
+        compare(
+            variable("missing_left"),
+            ">",
+            variable("missing_right"),
+        ),
+    )
+
+    first = _validate_ir(strategy)
+    second = _validate_ir(strategy)
+
+    assert first.valid is False
+    assert first.issues == second.issues
+    assert len(first.issues) == 2
+    assert "missing_left" in first.issues[0].message
+    assert "missing_right" in first.issues[1].message
+
+
+def test_ir_accepts_or_condition_with_declared_variables() -> None:
+    from private_quant_terminal.strategy.conditions import any_of, compare
+    from private_quant_terminal.strategy.expressions import (
+        constant,
+        variable,
+    )
+
+    strategy = _make_ir_with_condition(
+        any_of(
+            compare(variable("lower"), ">", constant(10)),
+            compare(variable("upper"), "<", constant(100)),
+        ),
+        variables=(
+            _number_variable("lower"),
+            _number_variable("upper"),
+        ),
+    )
+
+    result = _validate_ir(strategy)
+
+    assert result.valid is True
+    assert result.issues == ()
+
+
+def test_ir_rejects_undeclared_variable_inside_not_condition() -> None:
+    from private_quant_terminal.strategy.conditions import not_, compare
+    from private_quant_terminal.strategy.expressions import (
+        constant,
+        variable,
+    )
+
+    strategy = _make_ir_with_condition(
+        not_(
+            compare(
+                variable("missing_flag"),
+                "==",
+                constant(1),
+            ),
+        ),
+    )
+
+    result = _validate_ir(strategy)
+
+    assert result.valid is False
+    assert any(
+        "missing_flag" in issue.message
+        for issue in result.issues
+    )
+
+
+def test_ir_accepts_nested_unary_expression() -> None:
+    from private_quant_terminal.strategy.conditions import compare
+    from private_quant_terminal.strategy.expressions import (
+        absolute,
+        constant,
+        negate,
+    )
+
+    strategy = _make_ir_with_condition(
+        compare(
+            absolute(negate(constant(10))),
+            "==",
+            constant(10),
+        ),
+    )
+
+    result = _validate_ir(strategy)
+
+    assert result.valid is True
+    assert result.issues == ()
+
+
+def test_ir_accepts_nested_arithmetic_expression() -> None:
+    from private_quant_terminal.strategy.conditions import compare
+    from private_quant_terminal.strategy.expressions import (
+        arithmetic,
+        constant,
+    )
+
+    strategy = _make_ir_with_condition(
+        compare(
+            arithmetic(
+                arithmetic(
+                    constant(10),
+                    "+",
+                    constant(5),
+                ),
+                "*",
+                constant(2),
+            ),
+            "==",
+            constant(30),
+        ),
+    )
+
+    result = _validate_ir(strategy)
+
+    assert result.valid is True
+    assert result.issues == ()
+
+
+def test_ir_accepts_position_expression() -> None:
+    from private_quant_terminal.strategy.conditions import compare
+    from private_quant_terminal.strategy.expressions import (
+        constant,
+        position,
+        PositionField,
+    )
+
+    strategy = _make_ir_with_condition(
+        compare(
+            position(PositionField.UNREALIZED_PNL),
+            ">",
+            constant(0),
+        ),
+    )
+
+    result = _validate_ir(strategy)
+
+    assert result.valid is True
+    assert result.issues == ()
+
+
+def test_ir_accepts_time_expression() -> None:
+    from private_quant_terminal.strategy.conditions import compare
+    from private_quant_terminal.strategy.expressions import (
+        constant,
+        time_value,
+        TimeField,
+    )
+
+    strategy = _make_ir_with_condition(
+        compare(
+            time_value(TimeField.DAY_OF_WEEK),
+            ">=",
+            constant(0),
+        ),
+    )
+
+    result = _validate_ir(strategy)
+
+    assert result.valid is True
+    assert result.issues == ()
+
+
+def test_ir_accepts_indicator_expression() -> None:
+    from private_quant_terminal.strategy.conditions import compare
+    from private_quant_terminal.strategy.expressions import (
+        constant,
+        indicator,
+    )
+
+    strategy = _make_ir_with_condition(
+        compare(
+            indicator(
+                "EMA",
+                parameters={"period": 20},
+            ),
+            ">",
+            constant(100),
+        ),
+    )
+
+    result = _validate_ir(strategy)
+
+    assert result.valid is True
+    assert result.issues == ()
+
+
+def test_ir_accepts_nested_expression_with_declared_variable() -> None:
+    from private_quant_terminal.strategy.conditions import compare
+    from private_quant_terminal.strategy.expressions import (
+        arithmetic,
+        constant,
+        negate,
+        variable,
+    )
+
+    strategy = _make_ir_with_condition(
+        compare(
+            arithmetic(
+                negate(variable("threshold")),
+                "*",
+                constant(-1),
+            ),
+            ">",
+            constant(0),
+        ),
+        variables=(_number_variable("threshold"),),
+    )
+
+    result = _validate_ir(strategy)
+
+    assert result.valid is True
+    assert result.issues == ()
