@@ -338,6 +338,158 @@ def test_state_scoped_rule_reads_and_persists_strategy_variable() -> None:
     assert second_result.action_results == ()
     assert orchestrator.variable_store.resolve("adjustment_count") == 1
 
+
+def test_state_and_variable_compose_across_adjustment_cycle() -> None:
+    from private_quant_terminal.strategy.state_machine import StrategyStateMachine
+    from private_quant_terminal.strategy.states import (
+        StateTransition,
+        StrategyState,
+    )
+    from private_quant_terminal.strategy.variables import (
+        MarketContext,
+        StrategyVariable,
+        VariableAssignment,
+        VariableScope,
+        VariableType,
+    )
+
+    adjustment_count = StrategyVariable(
+        name="adjustment_count",
+        variable_type=VariableType.NUMBER,
+        scope=VariableScope.STRATEGY,
+        value=0,
+    )
+
+    observed_count = StrategyVariable(
+        name="observed_count",
+        variable_type=VariableType.NUMBER,
+        scope=VariableScope.STRATEGY,
+        value=0,
+    )
+
+    adjustment_group = option_group("adjustment-cycle")
+
+    adjustment_rule = StrategyRule(
+        rule_id="active-adjustment",
+        name="Active Adjustment",
+        condition=compare(
+            variable("adjustment_count"),
+            ComparisonOperator.LESS_THAN,
+            ConstantExpression(value=1.0),
+        ),
+        actions=(EnterAction(position=adjustment_group),),
+        priority=10,
+        states=("ACTIVE",),
+        variable_assignments=(
+            VariableAssignment(
+                name="adjustment_count",
+                value=add(variable("adjustment_count"), constant(1)),
+            ),
+        ),
+    )
+
+    post_adjustment_rule = StrategyRule(
+        rule_id="post-adjustment",
+        name="Post Adjustment",
+        condition=compare(
+            variable("adjustment_count"),
+            ComparisonOperator.GREATER_THAN,
+            ConstantExpression(value=0.0),
+        ),
+        actions=(),
+        priority=10,
+        states=("POST_ADJUSTMENT",),
+        variable_assignments=(
+            VariableAssignment(
+                name="observed_count",
+                value=variable("adjustment_count"),
+            ),
+        ),
+    )
+
+    machine = StrategyStateMachine(
+        states=(
+            StrategyState(
+                state_id="ACTIVE",
+                name="Active",
+                initial=True,
+            ),
+            StrategyState(
+                state_id="POST_ADJUSTMENT",
+                name="Post Adjustment",
+            ),
+        ),
+        transitions=(
+            StateTransition(
+                transition_id="adjust",
+                from_state="ACTIVE",
+                to_state="POST_ADJUSTMENT",
+                condition=compare(
+                    PriceExpression(field=PriceField.CLOSE),
+                    ComparisonOperator.GREATER_THAN,
+                    ConstantExpression(value=100.0),
+                ),
+                actions=(
+                    ExitAction(group_id="adjustment-cycle"),
+                ),
+                priority=10,
+            ),
+        ),
+    )
+
+    orchestrator = ExecutionOrchestrator(
+        variables=(adjustment_count, observed_count),
+    )
+    orchestrator.start()
+
+    candles = (transition_candle(),)
+
+    evaluation, result = orchestrator.evaluate_and_process(
+        (adjustment_rule, post_adjustment_rule),
+        candles,
+        0,
+        current_state=machine.current_state,
+    )
+
+    assert tuple(
+        triggered.rule_id
+        for triggered in evaluation.triggered_rules
+    ) == ("active-adjustment",)
+    assert len(result.action_results) == 1
+    assert orchestrator.variable_store.resolve("adjustment_count") == 1
+
+    transition_result = orchestrator.process_state_transition(
+        machine,
+        candles[0],
+    )
+
+    assert transition_result.transition is not None
+    assert transition_result.transition.transition.transition_id == "adjust"
+    assert transition_result.transition.from_state == "ACTIVE"
+    assert transition_result.transition.to_state == "POST_ADJUSTMENT"
+    assert transition_result.execution_result.action_results
+    assert (
+        transition_result.execution_result.action_results[0].action
+        == ExitAction(group_id="adjustment-cycle")
+    )
+    assert machine.current_state == "POST_ADJUSTMENT"
+
+    evaluation, result = orchestrator.evaluate_and_process(
+        (adjustment_rule, post_adjustment_rule),
+        candles,
+        0,
+        current_state=machine.current_state,
+    )
+
+    assert tuple(
+        triggered.rule_id
+        for triggered in evaluation.triggered_rules
+    ) == ("post-adjustment",)
+    assert result.action_results == ()
+    assert evaluation.variable_mutations
+    assert orchestrator.variable_store.resolve("adjustment_count") == 1
+    assert orchestrator.variable_store.resolve("observed_count") == 1
+
 def option_group(group_id: str) -> PositionGroup:
     selector = OptionSelector(
         underlying="BANKNIFTY",
