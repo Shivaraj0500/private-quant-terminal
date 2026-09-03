@@ -1036,6 +1036,29 @@ def test_processing_while_paused_is_rejected() -> None:
         orchestrator.process(())
 
 
+def test_state_transition_processing_while_paused_is_rejected() -> None:
+    machine = make_state_machine(
+        actions=(EnterAction(position=option_group("paused-transition")),),
+    )
+    orchestrator = ExecutionOrchestrator()
+    orchestrator.start()
+    orchestrator.pause()
+
+    with pytest.raises(
+        ValueError,
+        match="must be RUNNING",
+    ):
+        orchestrator.process_state_transition(
+            machine,
+            transition_candle(),
+        )
+
+    assert machine.current_state == "WAITING"
+    assert orchestrator.action_processor.get_position(
+        "paused-transition",
+    ) is None
+
+
 def test_processing_after_stop_is_rejected() -> None:
     orchestrator = ExecutionOrchestrator()
     orchestrator.start()
