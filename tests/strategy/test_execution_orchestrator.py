@@ -491,6 +491,153 @@ def test_state_and_variable_compose_across_adjustment_cycle() -> None:
     assert orchestrator.variable_store.resolve("observed_count") == 1
 
 
+def test_stateful_hedge_keeps_parent_and_enters_post_hedge_state() -> None:
+    from private_quant_terminal.strategy.actions import HedgeAction
+    from private_quant_terminal.strategy.state_machine import StrategyStateMachine
+    from private_quant_terminal.strategy.states import (
+        StateTransition,
+        StrategyState,
+    )
+    from private_quant_terminal.strategy.variables import (
+        StrategyVariable,
+        VariableAssignment,
+        VariableScope,
+        VariableType,
+    )
+
+    hedge_count = StrategyVariable(
+        name="hedge_count",
+        variable_type=VariableType.NUMBER,
+        scope=VariableScope.STRATEGY,
+        value=0,
+    )
+
+    primary = option_group("stateful-hedge-primary")
+    hedge = option_group("stateful-hedge-position")
+
+    entry_rule = StrategyRule(
+        rule_id="entry",
+        name="Entry",
+        condition=compare(
+            PriceExpression(field=PriceField.CLOSE),
+            ComparisonOperator.GREATER_THAN,
+            ConstantExpression(value=100.0),
+        ),
+        actions=(EnterAction(position=primary),),
+        priority=20,
+        states=("ACTIVE",),
+    )
+
+    post_hedge_rule = StrategyRule(
+        rule_id="post-hedge",
+        name="Post Hedge",
+        condition=compare(
+            PriceExpression(field=PriceField.CLOSE),
+            ComparisonOperator.GREATER_THAN,
+            ConstantExpression(value=100.0),
+        ),
+        actions=(),
+        priority=10,
+        states=("POST_HEDGE",),
+        variable_assignments=(
+            VariableAssignment(
+                name="hedge_count",
+                value=add(variable("hedge_count"), constant(1)),
+            ),
+        ),
+    )
+
+    machine = StrategyStateMachine(
+        states=(
+            StrategyState(
+                state_id="ACTIVE",
+                name="Active",
+                initial=True,
+            ),
+            StrategyState(
+                state_id="POST_HEDGE",
+                name="Post Hedge",
+            ),
+        ),
+        transitions=(
+            StateTransition(
+                transition_id="hedge",
+                from_state="ACTIVE",
+                to_state="POST_HEDGE",
+                condition=compare(
+                    PriceExpression(field=PriceField.CLOSE),
+                    ComparisonOperator.GREATER_THAN,
+                    ConstantExpression(value=100.0),
+                ),
+                actions=(
+                    HedgeAction(
+                        group_id=primary.group_id,
+                        hedge=hedge,
+                    ),
+                ),
+                priority=10,
+            ),
+        ),
+    )
+
+    orchestrator = ExecutionOrchestrator(
+        variables=(hedge_count,),
+    )
+    orchestrator.start()
+
+    candle = transition_candle()
+
+    evaluation, result = orchestrator.evaluate_and_process(
+        (entry_rule, post_hedge_rule),
+        (candle,),
+        0,
+        current_state=machine.current_state,
+    )
+
+    assert tuple(
+        triggered.rule_id
+        for triggered in evaluation.triggered_rules
+    ) == ("entry",)
+    assert result.action_results
+    assert result.action_results[0].action == EnterAction(position=primary)
+    assert orchestrator.variable_store.resolve("hedge_count") == 0
+
+    transition_result = orchestrator.process_state_transition(
+        machine,
+        candle,
+    )
+
+    assert transition_result.transition is not None
+    assert transition_result.transition.transition.transition_id == "hedge"
+    assert transition_result.transition.transition.from_state == "ACTIVE"
+    assert transition_result.transition.transition.to_state == "POST_HEDGE"
+    assert transition_result.execution_result.action_results
+
+    primary_snapshot = orchestrator.action_processor.get_state(primary.group_id)
+    hedge_snapshot = orchestrator.action_processor.get_state(hedge.group_id)
+
+    assert primary_snapshot is not None
+    assert hedge_snapshot is not None
+    assert primary_snapshot.state.name == "OPEN"
+    assert hedge_snapshot.state.name == "OPEN"
+    assert machine.current_state == "POST_HEDGE"
+
+    evaluation, result = orchestrator.evaluate_and_process(
+        (entry_rule, post_hedge_rule),
+        (candle,),
+        0,
+        current_state=machine.current_state,
+    )
+
+    assert tuple(
+        triggered.rule_id
+        for triggered in evaluation.triggered_rules
+    ) == ("post-hedge",)
+    assert result.action_results == ()
+    assert evaluation.variable_mutations
+    assert orchestrator.variable_store.resolve("hedge_count") == 1
+
+
 def test_stateful_roll_moves_position_and_enters_post_roll_state() -> None:
     from private_quant_terminal.strategy.actions import RollAction
     from private_quant_terminal.strategy.state_machine import StrategyStateMachine
