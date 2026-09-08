@@ -225,3 +225,139 @@ class ResearchAccountingEngine:
             realized_pnl=realized_pnl,
             transaction_cost=fill.transaction_cost,
         )
+
+
+class ResearchSimulationAdapter:
+    """Translate supported canonical actions into deterministic research fills.
+
+    Phase 8.6 deliberately supports only single-leg non-option entries and
+    exits. Strategy-condition semantics remain owned by the canonical
+    strategy runtime.
+    """
+
+    def __init__(self, accounting: ResearchAccountingEngine | None = None) -> None:
+        self._accounting = accounting or ResearchAccountingEngine()
+
+    def enter(
+        self,
+        *,
+        timestamp: datetime,
+        action,
+        instrument: Instrument,
+        price: float,
+        quantity: float,
+        transaction_cost: float = 0.0,
+    ) -> tuple[ResearchActionEvent, ResearchFill, ResearchAccountingResult]:
+        from private_quant_terminal.strategy.actions import EnterAction
+        from private_quant_terminal.strategy.positions import (
+            LegAction,
+            LegInstrumentType,
+        )
+
+        if not isinstance(action, EnterAction):
+            raise TypeError("enter() requires an EnterAction.")
+
+        position = action.position
+
+        if len(position.legs) != 1:
+            raise ValueError(
+                "Phase 8.6 research entry requires exactly one strategy leg."
+            )
+
+        leg = position.legs[0]
+
+        if leg.instrument_type is LegInstrumentType.OPTION:
+            raise ValueError(
+                "Phase 8.6 research entry does not support option legs."
+            )
+
+        if leg.action is LegAction.BUY:
+            side = ResearchFillSide.BUY
+        elif leg.action is LegAction.SELL:
+            side = ResearchFillSide.SELL
+        else:
+            raise ValueError(
+                f"Unsupported strategy leg action: {leg.action!r}."
+            )
+
+        fill = ResearchFill(
+            timestamp=timestamp,
+            group_id=position.group_id,
+            instrument=instrument,
+            side=side,
+            quantity=quantity,
+            price=price,
+            transaction_cost=transaction_cost,
+            action_type=action.action_type,
+        )
+
+        result = self._accounting.apply_fill(None, fill)
+
+        return (
+            ResearchActionEvent(
+                timestamp=timestamp,
+                action_type=action.action_type,
+                group_id=position.group_id,
+            ),
+            fill,
+            result,
+        )
+
+    def exit(
+        self,
+        *,
+        timestamp: datetime,
+        action,
+        position: ResearchLegPosition,
+        price: float,
+        quantity: float | None = None,
+        transaction_cost: float = 0.0,
+    ) -> tuple[ResearchActionEvent, ResearchFill, ResearchAccountingResult]:
+        from private_quant_terminal.strategy.actions import ExitAction
+
+        if not isinstance(action, ExitAction):
+            raise TypeError("exit() requires an ExitAction.")
+
+        if position.group_id != action.group_id:
+            raise ValueError("Exit action group does not match the position.")
+
+        close_quantity = (
+            abs(position.quantity) if quantity is None else quantity
+        )
+
+        if close_quantity <= 0:
+            raise ValueError("Exit quantity must be positive.")
+
+        if close_quantity > abs(position.quantity):
+            raise ValueError(
+                "Exit quantity cannot exceed the existing position quantity."
+            )
+
+        side = (
+            ResearchFillSide.SELL
+            if position.quantity > 0
+            else ResearchFillSide.BUY
+        )
+
+        fill = ResearchFill(
+            timestamp=timestamp,
+            group_id=action.group_id,
+            instrument=position.instrument,
+            side=side,
+            quantity=close_quantity,
+            price=price,
+            transaction_cost=transaction_cost,
+            action_type=action.action_type,
+        )
+
+        result = self._accounting.apply_fill(position, fill)
+
+        return (
+            ResearchActionEvent(
+                timestamp=timestamp,
+                action_type=action.action_type,
+                group_id=action.group_id,
+            ),
+            fill,
+            result,
+        )

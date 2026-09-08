@@ -366,3 +366,295 @@ def test_buy_cannot_exceed_short_position_without_reversal_logic():
     assert result.position.quantity == 3
     assert result.position.average_price == 90
     assert result.realized_pnl == 50
+
+from private_quant_terminal.strategy.actions import EnterAction, ExitAction
+from private_quant_terminal.strategy.positions import (
+    LegAction,
+    LegInstrumentType,
+    PositionGroup,
+    StrategyLeg,
+)
+
+
+def make_position_group(
+    *,
+    group_id: str = "group-1",
+    action: LegAction = LegAction.BUY,
+    symbol: str = "TEST",
+    legs: tuple[StrategyLeg, ...] | None = None,
+) -> PositionGroup:
+    if legs is None:
+        legs = (
+            StrategyLeg(
+                action=action,
+                instrument_type=LegInstrumentType.EQUITY,
+                symbol=symbol,
+            ),
+        )
+
+    return PositionGroup(
+        group_id=group_id,
+        name="Test Position",
+        legs=legs,
+    )
+
+
+def test_adapter_enter_maps_canonical_buy_to_buy_fill():
+    from private_quant_terminal.research.simulation import ResearchSimulationAdapter
+
+    adapter = ResearchSimulationAdapter()
+    action = EnterAction(
+        position=make_position_group(action=LegAction.BUY),
+    )
+
+    event, fill, result = adapter.enter(
+        timestamp=datetime(2026, 1, 2, tzinfo=timezone.utc),
+        action=action,
+        instrument=make_instrument(),
+        price=100,
+        quantity=10,
+    )
+
+    assert event.action_type.value == "ENTER"
+    assert event.group_id == "group-1"
+    assert fill.side is ResearchFillSide.BUY
+    assert fill.quantity == 10
+    assert fill.price == 100
+    assert result.position is not None
+    assert result.position.quantity == 10
+
+
+def test_adapter_enter_maps_canonical_sell_to_sell_fill():
+    from private_quant_terminal.research.simulation import ResearchSimulationAdapter
+
+    adapter = ResearchSimulationAdapter()
+    action = EnterAction(
+        position=make_position_group(action=LegAction.SELL),
+    )
+
+    _, fill, result = adapter.enter(
+        timestamp=datetime(2026, 1, 2, tzinfo=timezone.utc),
+        action=action,
+        instrument=make_instrument(),
+        price=100,
+        quantity=10,
+    )
+
+    assert fill.side is ResearchFillSide.SELL
+    assert result.position is not None
+    assert result.position.quantity == -10
+
+
+def test_adapter_exit_maps_long_position_to_sell_fill():
+    from private_quant_terminal.research.simulation import ResearchSimulationAdapter
+
+    adapter = ResearchSimulationAdapter()
+    action = ExitAction(group_id="group-1")
+    position = ResearchLegPosition(
+        group_id="group-1",
+        instrument=make_instrument(),
+        quantity=10,
+        average_price=100,
+    )
+
+    _, fill, result = adapter.exit(
+        timestamp=datetime(2026, 1, 3, tzinfo=timezone.utc),
+        action=action,
+        position=position,
+        price=120,
+    )
+
+    assert fill.side is ResearchFillSide.SELL
+    assert fill.quantity == 10
+    assert result.position is None
+    assert result.realized_pnl == 200
+
+
+def test_adapter_exit_maps_short_position_to_buy_cover():
+    from private_quant_terminal.research.simulation import ResearchSimulationAdapter
+
+    adapter = ResearchSimulationAdapter()
+    action = ExitAction(group_id="group-1")
+    position = ResearchLegPosition(
+        group_id="group-1",
+        instrument=make_instrument(),
+        quantity=-10,
+        average_price=100,
+    )
+
+    _, fill, result = adapter.exit(
+        timestamp=datetime(2026, 1, 3, tzinfo=timezone.utc),
+        action=action,
+        position=position,
+        price=80,
+    )
+
+    assert fill.side is ResearchFillSide.BUY
+    assert fill.quantity == 10
+    assert result.position is None
+    assert result.realized_pnl == 200
+
+
+def test_adapter_exit_supports_partial_close():
+    from private_quant_terminal.research.simulation import ResearchSimulationAdapter
+
+    adapter = ResearchSimulationAdapter()
+    action = ExitAction(group_id="group-1")
+    position = ResearchLegPosition(
+        group_id="group-1",
+        instrument=make_instrument(),
+        quantity=10,
+        average_price=100,
+    )
+
+    _, fill, result = adapter.exit(
+        timestamp=datetime(2026, 1, 3, tzinfo=timezone.utc),
+        action=action,
+        position=position,
+        price=110,
+        quantity=4,
+    )
+
+    assert fill.quantity == 4
+    assert fill.side is ResearchFillSide.SELL
+    assert result.position is not None
+    assert result.position.quantity == 6
+    assert result.realized_pnl == 40
+
+
+def test_adapter_rejects_multi_leg_entry():
+    from private_quant_terminal.research.simulation import ResearchSimulationAdapter
+
+    legs = (
+        StrategyLeg(
+            action=LegAction.BUY,
+            instrument_type=LegInstrumentType.EQUITY,
+            symbol="TEST",
+        ),
+        StrategyLeg(
+            action=LegAction.SELL,
+            instrument_type=LegInstrumentType.EQUITY,
+            symbol="TEST2",
+        ),
+    )
+
+    action = EnterAction(
+        position=make_position_group(legs=legs),
+    )
+
+    with pytest.raises(ValueError, match="exactly one strategy leg"):
+        ResearchSimulationAdapter().enter(
+            timestamp=datetime(2026, 1, 2, tzinfo=timezone.utc),
+            action=action,
+            instrument=make_instrument(),
+            price=100,
+            quantity=10,
+        )
+
+
+def test_adapter_rejects_option_entry():
+    from private_quant_terminal.research.simulation import ResearchSimulationAdapter
+    from private_quant_terminal.strategy.options import (
+        OptionSelector,
+        OptionType,
+        StrikeSelection,
+    )
+
+    leg = StrategyLeg(
+        action=LegAction.SELL,
+        instrument_type=LegInstrumentType.OPTION,
+        option=OptionSelector(
+            underlying="TEST",
+            option_type=OptionType.CALL,
+            strike_selection=StrikeSelection.ATM,
+        ),
+    )
+
+    action = EnterAction(
+        position=make_position_group(legs=(leg,)),
+    )
+
+    with pytest.raises(ValueError, match="does not support option legs"):
+        ResearchSimulationAdapter().enter(
+            timestamp=datetime(2026, 1, 2, tzinfo=timezone.utc),
+            action=action,
+            instrument=make_instrument(),
+            price=100,
+            quantity=10,
+        )
+
+
+def test_adapter_rejects_wrong_enter_action_type():
+    from private_quant_terminal.research.simulation import ResearchSimulationAdapter
+
+    with pytest.raises(TypeError, match="requires an EnterAction"):
+        ResearchSimulationAdapter().enter(
+            timestamp=datetime(2026, 1, 2, tzinfo=timezone.utc),
+            action=ExitAction(group_id="group-1"),
+            instrument=make_instrument(),
+            price=100,
+            quantity=10,
+        )
+
+
+def test_adapter_rejects_wrong_exit_action_type():
+    from private_quant_terminal.research.simulation import ResearchSimulationAdapter
+
+    action = EnterAction(
+        position=make_position_group(),
+    )
+    position = ResearchLegPosition(
+        group_id="group-1",
+        instrument=make_instrument(),
+        quantity=10,
+        average_price=100,
+    )
+
+    with pytest.raises(TypeError, match="requires an ExitAction"):
+        ResearchSimulationAdapter().exit(
+            timestamp=datetime(2026, 1, 3, tzinfo=timezone.utc),
+            action=action,
+            position=position,
+            price=110,
+        )
+
+
+def test_adapter_rejects_exit_larger_than_position():
+    from private_quant_terminal.research.simulation import ResearchSimulationAdapter
+
+    action = ExitAction(group_id="group-1")
+    position = ResearchLegPosition(
+        group_id="group-1",
+        instrument=make_instrument(),
+        quantity=10,
+        average_price=100,
+    )
+
+    with pytest.raises(ValueError, match="cannot exceed"):
+        ResearchSimulationAdapter().exit(
+            timestamp=datetime(2026, 1, 3, tzinfo=timezone.utc),
+            action=action,
+            position=position,
+            price=110,
+            quantity=11,
+        )
+
+
+def test_adapter_does_not_mutate_canonical_enter_action():
+    from private_quant_terminal.research.simulation import ResearchSimulationAdapter
+
+    action = EnterAction(
+        position=make_position_group(action=LegAction.SELL),
+    )
+
+    before = action
+
+    ResearchSimulationAdapter().enter(
+        timestamp=datetime(2026, 1, 2, tzinfo=timezone.utc),
+        action=action,
+        instrument=make_instrument(),
+        price=100,
+        quantity=10,
+    )
+
+    assert action == before
