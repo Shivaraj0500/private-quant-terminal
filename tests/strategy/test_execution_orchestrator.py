@@ -1644,6 +1644,183 @@ def test_evaluate_and_process_evaluates_rule_and_processes_actions() -> None:
     assert orchestrator.runtime_state.session.trades_today == 1
 
 
+def test_evaluate_and_process_plan_executes_compiled_rules() -> None:
+    from datetime import UTC, datetime
+
+    from private_quant_terminal.models import Candle
+    from private_quant_terminal.strategy.compiler import StrategyCompiler
+    from private_quant_terminal.strategy.conditions import (
+        ComparisonOperator,
+        compare,
+    )
+    from private_quant_terminal.strategy.expressions import (
+        ConstantExpression,
+        PriceExpression,
+        PriceField,
+    )
+    from private_quant_terminal.strategy.ir import StrategyIR
+    from private_quant_terminal.strategy.lifecycle import StrategyStatus
+
+    timestamp = datetime(2026, 8, 30, 10, 0, tzinfo=UTC)
+
+    group = option_group("compiled-entry")
+
+    rule = StrategyRule(
+        rule_id="compiled-entry-rule",
+        name="Compiled Entry Rule",
+        condition=compare(
+            PriceExpression(field=PriceField.CLOSE),
+            ComparisonOperator.GREATER_THAN,
+            ConstantExpression(value=100.0),
+        ),
+        actions=(
+            EnterAction(position=group),
+        ),
+        priority=1,
+    )
+
+    strategy = StrategyIR(
+        strategy_id="compiled-runtime-test",
+        name="Compiled Runtime Test",
+        description="Compiler runtime integration test",
+        version=1,
+        status=StrategyStatus.DRAFT,
+        instruments=("NIFTY",),
+        timeframe="5m",
+        rules=(rule,),
+        position_groups=(group,),
+    )
+
+    plan = StrategyCompiler().compile(strategy)
+
+    orchestrator = ExecutionOrchestrator()
+    orchestrator.start()
+
+    candles = (
+        Candle(
+            timestamp=timestamp,
+            open=100.0,
+            high=105.0,
+            low=99.0,
+            close=102.0,
+            volume=1000.0,
+        ),
+    )
+
+    evaluation, result = orchestrator.evaluate_and_process_plan(
+        plan,
+        candles,
+        0,
+    )
+
+    assert len(evaluation.triggered_rules) == 1
+    assert evaluation.triggered_rules[0].rule_id == "compiled-entry-rule"
+    assert len(evaluation.actions) == 1
+    assert len(result.action_results) == 1
+
+
+def test_evaluate_and_process_plan_passes_plan_variables_to_runtime() -> None:
+    from datetime import UTC, datetime
+
+    from private_quant_terminal.models import Candle
+    from private_quant_terminal.strategy.compiler import StrategyCompiler
+    from private_quant_terminal.strategy.conditions import compare
+    from private_quant_terminal.strategy.expressions import ConstantExpression
+    from private_quant_terminal.strategy.ir import StrategyIR
+    from private_quant_terminal.strategy.lifecycle import StrategyStatus
+    from private_quant_terminal.strategy.variables import (
+        StrategyVariable,
+        VariableScope,
+        VariableType,
+    )
+
+    timestamp = datetime(2026, 8, 30, 10, 0, tzinfo=UTC)
+
+    variable_definition = StrategyVariable(
+        name="risk_per_trade",
+        variable_type=VariableType.NUMBER,
+        scope=VariableScope.STRATEGY,
+        value=1.0,
+    )
+
+    rule = StrategyRule(
+        rule_id="variable-rule",
+        name="Variable Rule",
+        condition=compare(
+            variable("risk_per_trade"),
+            ">",
+            ConstantExpression(value=0.5),
+        ),
+        actions=(
+            EnterAction(position=option_group("compiled-variable-entry")),
+        ),
+    )
+
+    strategy = StrategyIR(
+        strategy_id="compiled-variable-test",
+        name="Compiled Variable Test",
+        description="Compiler variable propagation test",
+        version=1,
+        status=StrategyStatus.DRAFT,
+        instruments=("NIFTY",),
+        timeframe="5m",
+        variables=(variable_definition,),
+        rules=(rule,),
+    )
+
+    plan = StrategyCompiler().compile(strategy)
+
+    orchestrator = ExecutionOrchestrator()
+    orchestrator.start()
+
+    candles = (
+        Candle(
+            timestamp=timestamp,
+            open=100.0,
+            high=105.0,
+            low=99.0,
+            close=102.0,
+            volume=1000.0,
+        ),
+    )
+
+    evaluation, result = orchestrator.evaluate_and_process_plan(
+        plan,
+        candles,
+        0,
+    )
+
+    assert result.rejection_reasons == ()
+    assert len(evaluation.triggered_rules) == 1
+    assert evaluation.triggered_rules[0].rule_id == "variable-rule"
+    assert len(result.action_results) == 1
+
+
+def test_evaluate_and_process_plan_rejects_invalid_plan_type() -> None:
+    from datetime import UTC, datetime
+
+    from private_quant_terminal.models import Candle
+
+    orchestrator = ExecutionOrchestrator()
+
+    candles = (
+        Candle(
+            timestamp=datetime(2026, 8, 30, 10, 0, tzinfo=UTC),
+            open=100.0,
+            high=105.0,
+            low=99.0,
+            close=102.0,
+            volume=1000.0,
+        ),
+    )
+
+    with pytest.raises(TypeError, match="CompiledStrategyPlan"):
+        orchestrator.evaluate_and_process_plan(
+            object(),
+            candles,
+            0,
+        )
+
 def test_evaluate_and_process_persists_variable_assignment_after_acceptance() -> None:
     from datetime import UTC, datetime
 

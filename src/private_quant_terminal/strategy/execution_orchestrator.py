@@ -24,6 +24,7 @@ from private_quant_terminal.strategy.rule_evaluator import (
     RuleEvaluationResult,
     StrategyRuleEvaluator,
 )
+from private_quant_terminal.strategy.compiler import CompiledStrategyPlan
 from private_quant_terminal.strategy.rules import StrategyRule
 from private_quant_terminal.strategy.runtime_state import (
     StrategyRuntimeState,
@@ -210,6 +211,38 @@ class ExecutionOrchestrator:
         return any(
             isinstance(action, (EnterAction, RollAction))
             for action in actions
+        )
+
+    def evaluate_and_process_plan(
+        self,
+        plan: CompiledStrategyPlan,
+        candles: Sequence[Candle],
+        index: int,
+        *,
+        position: PositionContext | None = None,
+        session: StrategySession | None = None,
+        current_state: str | None = None,
+    ) -> tuple[RuleEvaluationResult, ExecutionOrchestrationResult]:
+        """Evaluate and process a deterministic compiled strategy plan.
+
+        This is a thin runtime adapter. Compilation remains side-effect-free,
+        while the existing rule evaluator and execution pipeline remain the
+        authoritative runtime path.
+        """
+
+        if not isinstance(plan, CompiledStrategyPlan):
+            raise TypeError(
+                "evaluate_and_process_plan() requires a CompiledStrategyPlan."
+            )
+
+        return self.evaluate_and_process(
+            plan.rules,
+            candles,
+            index,
+            position=position,
+            variables=plan.variables,
+            session=session,
+            current_state=current_state,
         )
 
     def evaluate_and_process(
