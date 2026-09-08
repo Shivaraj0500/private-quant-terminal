@@ -1372,6 +1372,8 @@ def _make_state_graph_transition(
     transition_id: str,
     from_state: str,
     to_state: str,
+    *,
+    enabled: bool = True,
 ):
     from private_quant_terminal.strategy.actions import ModifyAction
     from private_quant_terminal.strategy.states import StateTransition
@@ -1383,6 +1385,210 @@ def _make_state_graph_transition(
         condition=compare(constant(1), ">", constant(0)),
         actions=(
             ModifyAction("entry", (("quantity", 1),)),
+        ),
+        enabled=enabled,
+    )
+
+
+def test_ir_accepts_terminal_state_without_outgoing_transition() -> None:
+    from private_quant_terminal.strategy.states import StrategyState
+
+    strategy = _make_state_graph_ir(
+        states=(
+            StrategyState(
+                state_id="WAITING",
+                name="Waiting",
+                initial=True,
+            ),
+            StrategyState(
+                state_id="DONE",
+                name="Done",
+                terminal=True,
+            ),
+        ),
+        transitions=(
+            _make_state_graph_transition(
+                "finish",
+                "WAITING",
+                "DONE",
+            ),
+        ),
+    )
+
+    result = _validate_ir(strategy)
+
+    assert result.valid is True
+    assert result.issues == ()
+
+
+def test_ir_accepts_disabled_transition_from_terminal_state() -> None:
+    from private_quant_terminal.strategy.states import StrategyState
+
+    strategy = _make_state_graph_ir(
+        states=(
+            StrategyState(
+                state_id="WAITING",
+                name="Waiting",
+                initial=True,
+            ),
+            StrategyState(
+                state_id="DONE",
+                name="Done",
+                terminal=True,
+            ),
+        ),
+        transitions=(
+            _make_state_graph_transition(
+                "finish",
+                "WAITING",
+                "DONE",
+            ),
+            _make_state_graph_transition(
+                "disabled-restart",
+                "DONE",
+                "WAITING",
+                enabled=False,
+            ),
+        ),
+    )
+
+    result = _validate_ir(strategy)
+
+    assert result.valid is True
+    assert result.issues == ()
+
+
+def test_ir_accepts_enabled_transition_from_nonterminal_state() -> None:
+    from private_quant_terminal.strategy.states import StrategyState
+
+    strategy = _make_state_graph_ir(
+        states=(
+            StrategyState(
+                state_id="WAITING",
+                name="Waiting",
+                initial=True,
+            ),
+            StrategyState(
+                state_id="ACTIVE",
+                name="Active",
+            ),
+        ),
+        transitions=(
+            _make_state_graph_transition(
+                "start",
+                "WAITING",
+                "ACTIVE",
+            ),
+        ),
+    )
+
+    result = _validate_ir(strategy)
+
+    assert result.valid is True
+    assert result.issues == ()
+
+
+def test_ir_accepts_transition_into_terminal_state() -> None:
+    from private_quant_terminal.strategy.states import StrategyState
+
+    strategy = _make_state_graph_ir(
+        states=(
+            StrategyState(
+                state_id="ACTIVE",
+                name="Active",
+                initial=True,
+            ),
+            StrategyState(
+                state_id="DONE",
+                name="Done",
+                terminal=True,
+            ),
+        ),
+        transitions=(
+            _make_state_graph_transition(
+                "finish",
+                "ACTIVE",
+                "DONE",
+            ),
+        ),
+    )
+
+    result = _validate_ir(strategy)
+
+    assert result.valid is True
+    assert result.issues == ()
+
+
+def test_ir_rejects_enabled_transition_from_terminal_state() -> None:
+    from private_quant_terminal.strategy.states import StrategyState
+
+    strategy = _make_state_graph_ir(
+        states=(
+            StrategyState(
+                state_id="DONE",
+                name="Done",
+                initial=True,
+                terminal=True,
+            ),
+            StrategyState(
+                state_id="ACTIVE",
+                name="Active",
+            ),
+        ),
+        transitions=(
+            _make_state_graph_transition(
+                "restart",
+                "DONE",
+                "ACTIVE",
+            ),
+        ),
+    )
+
+    result = _validate_ir(strategy)
+
+    assert result.valid is False
+    assert result.issues == (
+        ValidationIssue(
+            field="transitions.restart.from_state",
+            message=(
+                "Enabled transition cannot originate from terminal "
+                "state: DONE."
+            ),
+        ),
+    )
+
+
+def test_ir_rejects_enabled_self_transition_from_terminal_state() -> None:
+    from private_quant_terminal.strategy.states import StrategyState
+
+    strategy = _make_state_graph_ir(
+        states=(
+            StrategyState(
+                state_id="DONE",
+                name="Done",
+                initial=True,
+                terminal=True,
+            ),
+        ),
+        transitions=(
+            _make_state_graph_transition(
+                "repeat",
+                "DONE",
+                "DONE",
+            ),
+        ),
+    )
+
+    result = _validate_ir(strategy)
+
+    assert result.valid is False
+    assert result.issues == (
+        ValidationIssue(
+            field="transitions.repeat.from_state",
+            message=(
+                "Enabled transition cannot originate from terminal "
+                "state: DONE."
+            ),
         ),
     )
 

@@ -445,6 +445,34 @@ def _validate_state_graph(
             )
 
 
+def _validate_terminal_state_transitions(
+    strategy: StrategyIR,
+    issues: list[ValidationIssue],
+) -> None:
+    """Reject enabled transitions originating from terminal states."""
+
+    terminal_state_ids = {
+        state.state_id
+        for state in strategy.states
+        if state.terminal
+    }
+
+    for transition in strategy.transitions:
+        if not transition.enabled:
+            continue
+
+        if transition.from_state in terminal_state_ids:
+            issues.append(
+                ValidationIssue(
+                    field=f"transitions.{transition.transition_id}.from_state",
+                    message=(
+                        "Enabled transition cannot originate from terminal "
+                        f"state: {transition.from_state}."
+                    ),
+                )
+            )
+
+
 def validate_strategy_ir(strategy: StrategyIR) -> StrategyValidationResult:
     """Validate canonical StrategyIR semantic cross-references."""
 
@@ -458,6 +486,7 @@ def validate_strategy_ir(strategy: StrategyIR) -> StrategyValidationResult:
 
     issues: list[ValidationIssue] = []
     _validate_state_graph(strategy, issues)
+    _validate_terminal_state_transitions(strategy, issues)
 
     declared_group_ids = {
         group.group_id
