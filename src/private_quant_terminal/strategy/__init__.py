@@ -10,6 +10,12 @@ from private_quant_terminal.strategy.data_requirements import (
     DataField,
     DataRequirement,
 )
+from private_quant_terminal.strategy.data_availability import (
+    CandleDataProvider,
+    DataAvailabilityChecker,
+    DataAvailabilityResult,
+    DataAvailabilityStatus,
+)
 from private_quant_terminal.strategy.enums import (
     ConditionOperator,
     OrderType,
@@ -44,7 +50,11 @@ from private_quant_terminal.strategy.validation import (
 )
 
 __all__ = [
+    "CandleDataProvider",
     "ConditionOperator",
+    "DataAvailabilityChecker",
+    "DataAvailabilityResult",
+    "DataAvailabilityStatus",
     "DataField",
     "DataRequirement",
     "ExecutionAssumptions",
