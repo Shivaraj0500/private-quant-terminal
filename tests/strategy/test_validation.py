@@ -176,6 +176,195 @@ def _make_test_position_group(group_id: str, name: str):
     )
 
 
+
+def test_position_leg_declared_instrument_is_accepted() -> None:
+    from private_quant_terminal.strategy.enums import StrategyStatus
+    from private_quant_terminal.strategy.ir import StrategyIR
+
+    group = _make_test_position_group("declared-group", "Declared Group")
+
+    strategy = StrategyIR(
+        strategy_id="position-reference-valid",
+        name="Position Reference Valid",
+        description="Declared position instrument.",
+        version=1,
+        status=StrategyStatus.DRAFT,
+        instruments=("RELIANCE",),
+        timeframe=StrategyTimeframe.ONE_HOUR,
+        position_groups=(group,),
+    )
+
+    result = validate_strategy_ir(strategy)
+
+    assert result.valid is True
+    assert result.issues == ()
+
+
+def test_position_leg_undeclared_instrument_is_rejected() -> None:
+    from private_quant_terminal.strategy.enums import StrategyStatus
+    from private_quant_terminal.strategy.ir import StrategyIR
+    from private_quant_terminal.strategy.positions import (
+        LegAction,
+        LegInstrumentType,
+        PositionGroup,
+        StrategyLeg,
+    )
+
+    group = PositionGroup(
+        group_id="undeclared-group",
+        name="Undeclared Group",
+        legs=(
+            StrategyLeg(
+                action=LegAction.BUY,
+                instrument_type=LegInstrumentType.EQUITY,
+                symbol="TCS",
+            ),
+        ),
+    )
+
+    strategy = StrategyIR(
+        strategy_id="position-reference-invalid",
+        name="Position Reference Invalid",
+        description="Undeclared position instrument.",
+        version=1,
+        status=StrategyStatus.DRAFT,
+        instruments=("RELIANCE",),
+        timeframe=StrategyTimeframe.ONE_HOUR,
+        position_groups=(group,),
+    )
+
+    result = validate_strategy_ir(strategy)
+
+    assert result.valid is False
+    assert result.issues == (
+        ValidationIssue(
+            field="position_groups.undeclared-group.legs.0.symbol",
+            message=(
+                "Position leg references undeclared strategy instrument: "
+                "TCS."
+            ),
+        ),
+    )
+
+
+def test_option_position_declared_underlying_is_accepted() -> None:
+    from private_quant_terminal.strategy.enums import StrategyStatus
+    from private_quant_terminal.strategy.ir import StrategyIR
+    from private_quant_terminal.strategy.options import (
+        OptionQuantity,
+        OptionSelector,
+        OptionType,
+        StrikeSelection,
+        ExpirySelection,
+    )
+    from private_quant_terminal.strategy.positions import (
+        LegAction,
+        LegInstrumentType,
+        PositionGroup,
+        StrategyLeg,
+    )
+
+    selector = OptionSelector(
+        underlying="NIFTY",
+        option_type=OptionType.CALL,
+        strike_selection=StrikeSelection.ATM,
+        expiry_selection=ExpirySelection.CURRENT_WEEK,
+    )
+
+    group = PositionGroup(
+        group_id="option-group",
+        name="Option Group",
+        legs=(
+            StrategyLeg(
+                action=LegAction.BUY,
+                instrument_type=LegInstrumentType.OPTION,
+                option=selector,
+                quantity=OptionQuantity(1),
+            ),
+        ),
+    )
+
+    strategy = StrategyIR(
+        strategy_id="option-reference-valid",
+        name="Option Reference Valid",
+        description="Declared option underlying.",
+        version=1,
+        status=StrategyStatus.DRAFT,
+        instruments=("NIFTY",),
+        timeframe=StrategyTimeframe.ONE_HOUR,
+        position_groups=(group,),
+    )
+
+    result = validate_strategy_ir(strategy)
+
+    assert result.valid is True
+    assert result.issues == ()
+
+
+def test_option_position_undeclared_underlying_is_rejected() -> None:
+    from private_quant_terminal.strategy.enums import StrategyStatus
+    from private_quant_terminal.strategy.ir import StrategyIR
+    from private_quant_terminal.strategy.options import (
+        OptionQuantity,
+        OptionSelector,
+        OptionType,
+        StrikeSelection,
+        ExpirySelection,
+    )
+    from private_quant_terminal.strategy.positions import (
+        LegAction,
+        LegInstrumentType,
+        PositionGroup,
+        StrategyLeg,
+    )
+
+    selector = OptionSelector(
+        underlying="BANKNIFTY",
+        option_type=OptionType.PUT,
+        strike_selection=StrikeSelection.ATM,
+        expiry_selection=ExpirySelection.CURRENT_WEEK,
+    )
+
+    group = PositionGroup(
+        group_id="option-undeclared-group",
+        name="Option Undeclared Group",
+        legs=(
+            StrategyLeg(
+                action=LegAction.SELL,
+                instrument_type=LegInstrumentType.OPTION,
+                option=selector,
+                quantity=OptionQuantity(1),
+            ),
+        ),
+    )
+
+    strategy = StrategyIR(
+        strategy_id="option-reference-invalid",
+        name="Option Reference Invalid",
+        description="Undeclared option underlying.",
+        version=1,
+        status=StrategyStatus.DRAFT,
+        instruments=("NIFTY",),
+        timeframe=StrategyTimeframe.ONE_HOUR,
+        position_groups=(group,),
+    )
+
+    result = validate_strategy_ir(strategy)
+
+    assert result.valid is False
+    assert result.issues == (
+        ValidationIssue(
+            field=(
+                "position_groups.option-undeclared-group."
+                "legs.0.option.underlying"
+            ),
+            message=(
+                "Position leg references undeclared strategy instrument: "
+                "BANKNIFTY."
+            ),
+        ),
+    )
+
 def _make_ir_with_action(action, position_groups=()):
     from private_quant_terminal.strategy.conditions import compare
     from private_quant_terminal.strategy.enums import StrategyStatus

@@ -22,6 +22,7 @@ from private_quant_terminal.strategy.expressions import (
     VariableExpression,
 )
 from private_quant_terminal.strategy.ir import StrategyDefinition, StrategyIR
+from private_quant_terminal.strategy.positions import LegInstrumentType
 
 
 @dataclass(frozen=True)
@@ -473,6 +474,47 @@ def _validate_terminal_state_transitions(
             )
 
 
+def _validate_position_instrument_references(
+    strategy: StrategyIR,
+    issues: list[ValidationIssue],
+) -> None:
+    """Validate that position legs reference declared strategy instruments."""
+
+    declared_instruments = {
+        instrument.strip().lower()
+        for instrument in strategy.instruments
+    }
+
+    for group in strategy.position_groups:
+        for index, leg in enumerate(group.legs):
+            if leg.instrument_type is LegInstrumentType.OPTION:
+                reference = leg.option.underlying if leg.option is not None else None
+                field = (
+                    f"position_groups.{group.group_id}."
+                    f"legs.{index}.option.underlying"
+                )
+            else:
+                reference = leg.symbol
+                field = (
+                    f"position_groups.{group.group_id}."
+                    f"legs.{index}.symbol"
+                )
+
+            if reference is None:
+                continue
+
+            if reference.strip().lower() not in declared_instruments:
+                issues.append(
+                    ValidationIssue(
+                        field=field,
+                        message=(
+                            "Position leg references undeclared strategy "
+                            f"instrument: {reference}."
+                        ),
+                    )
+                )
+
+
 def validate_strategy_ir(strategy: StrategyIR) -> StrategyValidationResult:
     """Validate canonical StrategyIR semantic cross-references."""
 
@@ -487,6 +529,7 @@ def validate_strategy_ir(strategy: StrategyIR) -> StrategyValidationResult:
     issues: list[ValidationIssue] = []
     _validate_state_graph(strategy, issues)
     _validate_terminal_state_transitions(strategy, issues)
+    _validate_position_instrument_references(strategy, issues)
 
     declared_group_ids = {
         group.group_id
