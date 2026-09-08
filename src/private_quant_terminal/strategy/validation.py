@@ -22,7 +22,7 @@ from private_quant_terminal.strategy.expressions import (
     VariableExpression,
 )
 from private_quant_terminal.strategy.ir import StrategyDefinition, StrategyIR
-from private_quant_terminal.strategy.positions import LegInstrumentType
+from private_quant_terminal.strategy.positions import LegInstrumentType, PositionGroup
 
 
 @dataclass(frozen=True)
@@ -474,11 +474,43 @@ def _validate_terminal_state_transitions(
             )
 
 
+def _validate_position_group_instrument_references(
+    group: PositionGroup,
+    *,
+    field: str,
+    declared_instruments: set[str],
+    issues: list[ValidationIssue],
+) -> None:
+    """Validate instrument references for every leg in a position group."""
+
+    for index, leg in enumerate(group.legs):
+        if leg.instrument_type is LegInstrumentType.OPTION:
+            reference = leg.option.underlying if leg.option is not None else None
+            leg_field = f"{field}.legs.{index}.option.underlying"
+        else:
+            reference = leg.symbol
+            leg_field = f"{field}.legs.{index}.symbol"
+
+        if reference is None:
+            continue
+
+        if reference.strip().lower() not in declared_instruments:
+            issues.append(
+                ValidationIssue(
+                    field=leg_field,
+                    message=(
+                        "Position leg references undeclared strategy "
+                        f"instrument: {reference}."
+                    ),
+                )
+            )
+
+
 def _validate_position_instrument_references(
     strategy: StrategyIR,
     issues: list[ValidationIssue],
 ) -> None:
-    """Validate that position legs reference declared strategy instruments."""
+    """Validate instrument references in all strategy position groups."""
 
     declared_instruments = {
         instrument.strip().lower()
@@ -486,33 +518,12 @@ def _validate_position_instrument_references(
     }
 
     for group in strategy.position_groups:
-        for index, leg in enumerate(group.legs):
-            if leg.instrument_type is LegInstrumentType.OPTION:
-                reference = leg.option.underlying if leg.option is not None else None
-                field = (
-                    f"position_groups.{group.group_id}."
-                    f"legs.{index}.option.underlying"
-                )
-            else:
-                reference = leg.symbol
-                field = (
-                    f"position_groups.{group.group_id}."
-                    f"legs.{index}.symbol"
-                )
-
-            if reference is None:
-                continue
-
-            if reference.strip().lower() not in declared_instruments:
-                issues.append(
-                    ValidationIssue(
-                        field=field,
-                        message=(
-                            "Position leg references undeclared strategy "
-                            f"instrument: {reference}."
-                        ),
-                    )
-                )
+        _validate_position_group_instrument_references(
+            group,
+            field=f"position_groups.{group.group_id}",
+            declared_instruments=declared_instruments,
+            issues=issues,
+        )
 
 
 def validate_strategy_ir(strategy: StrategyIR) -> StrategyValidationResult:

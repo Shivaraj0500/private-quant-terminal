@@ -177,6 +177,31 @@ def _make_test_position_group(group_id: str, name: str):
 
 
 
+def _make_test_position_group_with_symbol(
+    group_id: str,
+    name: str,
+    symbol: str,
+):
+    from private_quant_terminal.strategy.positions import (
+        LegAction,
+        LegInstrumentType,
+        PositionGroup,
+        StrategyLeg,
+    )
+
+    return PositionGroup(
+        group_id=group_id,
+        name=name,
+        legs=(
+            StrategyLeg(
+                action=LegAction.BUY,
+                instrument_type=LegInstrumentType.EQUITY,
+                symbol=symbol,
+            ),
+        ),
+    )
+
+
 def test_position_leg_declared_instrument_is_accepted() -> None:
     from private_quant_terminal.strategy.enums import StrategyStatus
     from private_quant_terminal.strategy.ir import StrategyIR
@@ -829,6 +854,96 @@ def test_ir_rejects_enter_action_with_unknown_position_group() -> None:
 
     assert result.valid is False
     assert any("missing-group" in issue.message for issue in result.issues)
+
+
+def test_ir_rejects_enter_action_with_undeclared_instrument() -> None:
+    from private_quant_terminal.strategy.actions import EnterAction
+
+    position = _make_test_position_group_with_symbol(
+        "entry",
+        "Entry group",
+        "TCS",
+    )
+
+    strategy = _make_ir_with_action(
+        EnterAction(position=position),
+        position_groups=(position,),
+    )
+
+    result = _validate_ir(strategy)
+
+    assert result.valid is False
+    assert any(
+        issue.field == "position_groups.entry.legs.0.symbol"
+        and "TCS" in issue.message
+        for issue in result.issues
+    )
+
+
+def test_ir_rejects_roll_replacement_with_undeclared_instrument() -> None:
+    from private_quant_terminal.strategy.actions import RollAction
+
+    source = _make_test_position_group_with_symbol(
+        "entry",
+        "Entry group",
+        "RELIANCE",
+    )
+    replacement = _make_test_position_group_with_symbol(
+        "replacement",
+        "Replacement group",
+        "TCS",
+    )
+
+    strategy = _make_ir_with_action(
+        RollAction(
+            group_id="entry",
+            replacement=replacement,
+        ),
+        position_groups=(source, replacement),
+    )
+
+    result = _validate_ir(strategy)
+
+    assert result.valid is False
+    assert any(
+        issue.field
+        == "position_groups.replacement.legs.0.symbol"
+        and "TCS" in issue.message
+        for issue in result.issues
+    )
+
+
+def test_ir_rejects_hedge_with_undeclared_instrument() -> None:
+    from private_quant_terminal.strategy.actions import HedgeAction
+
+    parent = _make_test_position_group_with_symbol(
+        "entry",
+        "Entry group",
+        "RELIANCE",
+    )
+    hedge = _make_test_position_group_with_symbol(
+        "hedge",
+        "Hedge group",
+        "TCS",
+    )
+
+    strategy = _make_ir_with_action(
+        HedgeAction(
+            group_id="entry",
+            hedge=hedge,
+        ),
+        position_groups=(parent, hedge),
+    )
+
+    result = _validate_ir(strategy)
+
+    assert result.valid is False
+    assert any(
+        issue.field
+        == "position_groups.hedge.legs.0.symbol"
+        and "TCS" in issue.message
+        for issue in result.issues
+    )
 
 
 def test_ir_rejects_modify_action_with_unknown_position_group() -> None:
