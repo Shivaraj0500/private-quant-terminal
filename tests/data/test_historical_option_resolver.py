@@ -992,3 +992,61 @@ def test_current_month_uses_historical_as_of_month() -> None:
     )
 
     assert result.instrument.expiry == "2027-01-28"
+
+
+def test_resolver_cannot_use_contract_introduced_after_as_of() -> None:
+    from private_quant_terminal.data.derivatives.provider import (
+        InMemoryHistoricalOptionChainProvider,
+    )
+
+    historical = datetime(2026, 9, 9, 9, 59, tzinfo=UTC)
+    signal = datetime(2026, 9, 9, 10, 0, tzinfo=UTC)
+    later = datetime(2026, 9, 9, 10, 1, tzinfo=UTC)
+
+    historical_chain = make_chain(
+        timestamp=historical,
+        quotes=(
+            make_quote(
+                strike=55000.0,
+                option_type=OptionType.CALL,
+                expiry="2026-09-24",
+                timestamp=historical,
+            ),
+        ),
+    )
+
+    later_chain = make_chain(
+        timestamp=later,
+        quotes=(
+            make_quote(
+                strike=56000.0,
+                option_type=OptionType.CALL,
+                expiry="2026-10-01",
+                timestamp=later,
+            ),
+        ),
+    )
+
+    provider = InMemoryHistoricalOptionChainProvider(
+        (later_chain, historical_chain),
+    )
+
+    chain = provider.get_latest_chain("BANKNIFTY", signal)
+
+    assert chain is not None
+    assert chain.timestamp == historical
+
+    resolved = HistoricalOptionContractResolver().resolve(
+        selector(
+            option_type=OptionType.CALL,
+            strike_selection=StrikeSelection.ATM,
+            expiry_selection=ExpirySelection.CURRENT_WEEK,
+        ),
+        chain,
+        as_of=signal,
+        signal_underlying_price=55025.0,
+    )
+
+    assert resolved.instrument.strike == 55000.0
+    assert resolved.instrument.expiry == "2026-09-24"
+    assert resolved.resolved_at == signal
