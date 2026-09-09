@@ -11,6 +11,13 @@ from private_quant_terminal.research.execution import (
     ResearchExecutionRequest,
     ResearchExecutionResult,
 )
+from private_quant_terminal.research.evidence_v2 import (
+    ResearchV2EvidenceAdapter,
+)
+from private_quant_terminal.research.execution_v2 import (
+    ResearchV2ExecutionRequest,
+    ResearchV2Executor,
+)
 from private_quant_terminal.research.executor import ResearchExecutor
 from private_quant_terminal.research.integrity import (
     ResearchIntegrityAnalyzer,
@@ -36,7 +43,9 @@ from private_quant_terminal.research.run import (
     parameters_hash,
 )
 from private_quant_terminal.strategy.canonical import strategy_hash
-from private_quant_terminal.strategy.ir import StrategyVersion
+from private_quant_terminal.strategy.compiler import StrategyCompiler
+from private_quant_terminal.strategy.ir import StrategyIR, StrategyVersion
+from private_quant_terminal.strategy.validation import validate_strategy_ir
 
 
 @dataclass(frozen=True)
@@ -174,6 +183,196 @@ class ResearchRunService:
                     strategy_version=strategy_version,
                     candles=candles,
                 )
+            )
+
+            integrity = ResearchIntegrityAnalyzer().analyze(
+                execution
+            )
+
+            if integrity.status is ResearchIntegrityStatus.FAIL:
+                raise ValueError(
+                    "research execution failed integrity validation"
+                )
+
+            performance = ResearchPerformanceAnalyzer().analyze(
+                execution
+            )
+            intelligence = ResearchIntelligenceAnalyzer().analyze(
+                performance=performance,
+                integrity=integrity,
+            )
+
+        except Exception:
+            self._repository.update_status(
+                run.run_id,
+                ResearchRunStatus.FAILED,
+            )
+            raise
+
+        self._repository.save_result(
+            execution=execution,
+            performance=performance,
+            integrity=integrity,
+            intelligence=intelligence,
+        )
+
+        if should_update_lifecycle:
+            self._repository.update_status(
+                run.run_id,
+                ResearchRunStatus.COMPLETED,
+            )
+
+        completed_run = self._repository.get(run.run_id)
+
+        return ResearchAnalysisResult(
+            run=completed_run,
+            execution=execution,
+            performance=performance,
+            integrity=integrity,
+            intelligence=intelligence,
+        )
+
+
+    def create_run_v2(
+        self,
+        strategy: StrategyIR,
+        dataset: DatasetIdentity,
+        parameters: ResearchParameters,
+        run_id: str | None = None,
+    ) -> ResearchRunCreationResult:
+        """Create and persist a reproducible research run from StrategyIR V2."""
+
+        validation = validate_strategy_ir(strategy)
+
+        if not validation.valid:
+            raise ValueError(
+                "StrategyIR V2 failed validation: "
+                + "; ".join(
+                    f"{issue.field}: {issue.message}"
+                    for issue in validation.issues
+                )
+            )
+
+        if strategy.timeframe.value != dataset.timeframe:
+            raise ValueError(
+                "Strategy timeframe does not match dataset timeframe."
+            )
+
+        if dataset.symbol.upper() not in strategy.instruments:
+            raise ValueError(
+                "Dataset symbol is not supported by the strategy."
+            )
+
+        canonical_json = canonical_parameters_json(parameters)
+
+        run = ResearchRun(
+            run_id=run_id or str(uuid4()),
+            strategy_id=strategy.strategy_id,
+            strategy_version=strategy.version,
+            strategy_hash=strategy_hash(strategy),
+            dataset_hash=dataset.dataset_hash,
+            symbol=dataset.symbol,
+            timeframe=dataset.timeframe,
+            start_time=dataset.start_time,
+            end_time=dataset.end_time,
+            parameters_json=canonical_json,
+            parameters_hash=parameters_hash(parameters),
+            status=ResearchRunStatus.CREATED,
+            created_at=datetime.now(UTC),
+        )
+
+        self._repository.save(run)
+
+        return ResearchRunCreationResult(run=run)
+
+    def execute_run_v2(
+        self,
+        run: ResearchRun,
+        strategy: StrategyIR,
+        candles: tuple[Candle, ...],
+        initial_equity: float,
+    ) -> ResearchAnalysisResult:
+        """Execute and analyze a canonical StrategyIR V2 research run."""
+
+        validation = validate_strategy_ir(strategy)
+
+        if not validation.valid:
+            raise ValueError(
+                "StrategyIR V2 failed validation: "
+                + "; ".join(
+                    f"{issue.field}: {issue.message}"
+                    for issue in validation.issues
+                )
+            )
+
+        if run.strategy_id != strategy.strategy_id:
+            raise ValueError(
+                "strategy identity does not match research run"
+            )
+
+        if run.strategy_version != strategy.version:
+            raise ValueError(
+                "strategy version does not match research run"
+            )
+
+        if run.strategy_hash != strategy_hash(strategy):
+            raise ValueError(
+                "strategy hash does not match research run"
+            )
+
+        if run.timeframe != strategy.timeframe.value:
+            raise ValueError(
+                "strategy timeframe does not match research run"
+            )
+
+        if run.symbol.upper() not in strategy.instruments:
+            raise ValueError(
+                "research run symbol is not supported by the strategy"
+            )
+
+        if not candles:
+            raise ValueError(
+                "research execution requires at least one candle"
+            )
+
+        actual_dataset_hash = candle_dataset_hash(list(candles))
+
+        if run.dataset_hash != actual_dataset_hash:
+            raise ValueError(
+                "dataset hash does not match research run"
+            )
+
+        persisted_run = self._repository.get(run.run_id)
+
+        should_update_lifecycle = (
+            persisted_run.status is ResearchRunStatus.CREATED
+        )
+
+        if should_update_lifecycle:
+            self._repository.update_status(
+                run.run_id,
+                ResearchRunStatus.RUNNING,
+            )
+        elif persisted_run.status is not ResearchRunStatus.COMPLETED:
+            raise ValueError(
+                "Research run is not executable from status: "
+                f"{persisted_run.status.value}"
+            )
+
+        try:
+            plan = StrategyCompiler().compile(strategy)
+
+            v2_execution = ResearchV2Executor().execute(
+                ResearchV2ExecutionRequest(
+                    plan=plan,
+                    candles=candles,
+                    initial_equity=initial_equity,
+                    run_id=run.run_id,
+                )
+            )
+
+            execution = ResearchV2EvidenceAdapter().adapt(
+                v2_execution
             )
 
             integrity = ResearchIntegrityAnalyzer().analyze(
