@@ -5,6 +5,7 @@ from typing import Sequence
 
 from private_quant_terminal.models import Candle
 from private_quant_terminal.models.instrument import Instrument, InstrumentType
+from private_quant_terminal.strategy.actions import EnterAction, ExitAction
 from private_quant_terminal.strategy.compiler import CompiledStrategyPlan
 from private_quant_terminal.strategy.rule_evaluator import (
     RuleEvaluationResult,
@@ -15,10 +16,11 @@ from private_quant_terminal.strategy.variables import (
     SessionContext,
     StrategyRuntimeContext,
 )
+from private_quant_terminal.strategy.positions import PositionGroup
+from private_quant_terminal.research.position_book import ResearchPositionBook
 from private_quant_terminal.research.simulation import (
     ResearchActionEvent,
     ResearchFill,
-    ResearchLegPosition,
     ResearchSimulationAdapter,
     ResearchSimulationStep,
 )
@@ -87,7 +89,7 @@ class ResearchV2Executor:
         evaluator = StrategyRuleEvaluator()
         adapter = ResearchSimulationAdapter()
 
-        position: ResearchLegPosition | None = None
+        position_book = ResearchPositionBook()
         position_context = PositionContext()
         session = SessionContext(current_time=candles[0].timestamp)
 
@@ -133,70 +135,76 @@ class ResearchV2Executor:
                 action_type = action.action_type
 
                 if action_type.name == "ENTER":
-                    if position is not None:
+                    if position_book.positions_for_group(action.position.group_id):
                         continue
 
-                    if len(action.position.legs) != 1:
-                        raise NotImplementedError(
-                            "ResearchV2Executor currently supports exactly "
-                            "one non-option leg per ENTER action."
+                    for leg in action.position.legs:
+                        if leg.instrument_type.name == "OPTION":
+                            raise NotImplementedError(
+                                "Historical option execution belongs to Phase 9."
+                            )
+
+                        instrument_type = {
+                            "EQUITY": InstrumentType.EQUITY,
+                            "INDEX": InstrumentType.INDEX,
+                            "FUTURE": InstrumentType.FUTURE,
+                        }.get(leg.instrument_type.name)
+
+                        if instrument_type is None:
+                            raise NotImplementedError(
+                                f"Historical execution for {leg.instrument_type.name} "
+                                "legs belongs to a later research gate."
+                            )
+
+                        instrument = Instrument(
+                            symbol=leg.symbol,
+                            exchange="RESEARCH",
+                            instrument_type=instrument_type,
                         )
 
-                    leg = action.position.legs[0]
+                        if not isinstance(action, EnterAction):
+                            raise TypeError("ENTER action must be an EnterAction.")
 
-                    if leg.instrument_type.name == "OPTION":
-                        raise NotImplementedError(
-                            "Historical option execution belongs to Phase 9."
+                        event, fill, _ = adapter.enter(
+                            timestamp=candle.timestamp,
+                            action=EnterAction(
+                                position=PositionGroup(
+                                    group_id=action.position.group_id,
+                                    name=action.position.name,
+                                    legs=(leg,),
+                                )
+                            ),
+                            instrument=instrument,
+                            price=candle.close,
+                            quantity=(
+                                1.0
+                                if leg.quantity is None
+                                else float(leg.quantity)
+                            ),
                         )
 
-                    instrument_type = {
-                        "EQUITY": InstrumentType.EQUITY,
-                        "INDEX": InstrumentType.INDEX,
-                        "FUTURE": InstrumentType.FUTURE,
-                    }.get(leg.instrument_type.name)
-
-                    if instrument_type is None:
-                        raise NotImplementedError(
-                            f"Historical execution for {leg.instrument_type.name} "
-                            "legs belongs to a later research gate."
-                        )
-
-                    instrument = Instrument(
-                        symbol=leg.symbol,
-                        exchange="RESEARCH",
-                        instrument_type=instrument_type,
-                    )
-
-                    event, fill, accounting = adapter.enter(
-                        timestamp=candle.timestamp,
-                        action=action,
-                        instrument=instrument,
-                        price=candle.close,
-                        quantity=1.0,
-                    )
-
-                    position = accounting.position
-                    realized_pnl += accounting.realized_pnl
-                    transaction_cost += accounting.transaction_cost
-                    step_events.append(event)
-                    step_fills.append(fill)
+                        accounting = position_book.apply_fill(fill)
+                        realized_pnl += accounting.realized_pnl
+                        transaction_cost += accounting.transaction_cost
+                        step_events.append(event)
+                        step_fills.append(fill)
 
                 elif action_type.name == "EXIT":
-                    if position is None:
-                        continue
+                    group_positions = position_book.positions_for_group(action.group_id)
 
-                    event, fill, accounting = adapter.exit(
-                        timestamp=candle.timestamp,
-                        action=action,
-                        position=position,
-                        price=candle.close,
-                    )
+                    for existing_position in group_positions:
+                        event, fill, _ = adapter.exit(
+                            timestamp=candle.timestamp,
+                            action=ExitAction(group_id=action.group_id),
+                            position=existing_position,
+                            price=candle.close,
+                        )
 
-                    position = accounting.position
-                    realized_pnl += accounting.realized_pnl
-                    transaction_cost += accounting.transaction_cost
-                    step_events.append(event)
-                    step_fills.append(fill)
+                        accounting = position_book.apply_fill(fill)
+                        realized_pnl += accounting.realized_pnl
+                        transaction_cost += accounting.transaction_cost
+                        step_events.append(event)
+                        step_fills.append(fill)
 
                 else:
                     raise NotImplementedError(
@@ -207,21 +215,36 @@ class ResearchV2Executor:
             action_events.extend(step_events)
             fills.extend(step_fills)
 
-            if position is None:
+            open_positions = position_book.positions()
+
+            unrealized_pnl = sum(
+                (candle.close - open_position.average_price)
+                * open_position.quantity
+                for open_position in open_positions
+            )
+
+            if not open_positions:
                 position_context = PositionContext(
                     realized_pnl=realized_pnl,
                 )
-                unrealized_pnl = 0.0
             else:
-                unrealized_pnl = (
-                    (candle.close - position.average_price)
-                    * position.quantity
+                net_quantity = sum(
+                    open_position.quantity
+                    for open_position in open_positions
+                )
+                weighted_entry = (
+                    sum(
+                        abs(open_position.quantity)
+                        * open_position.average_price
+                        for open_position in open_positions
+                    )
+                    / sum(abs(open_position.quantity) for open_position in open_positions)
                 )
                 position_context = PositionContext(
-                    quantity=position.quantity,
-                    entry_price=position.average_price,
+                    quantity=net_quantity,
+                    entry_price=weighted_entry,
                     current_price=candle.close,
-                    average_price=position.average_price,
+                    average_price=weighted_entry,
                     realized_pnl=realized_pnl,
                     unrealized_pnl=unrealized_pnl,
                 )
@@ -237,11 +260,7 @@ class ResearchV2Executor:
                 timestamp=candle.timestamp,
                 action_events=tuple(step_events),
                 fills=tuple(step_fills),
-                positions=(
-                    (position,)
-                    if position is not None
-                    else ()
-                ),
+                positions=position_book.positions(),
                 realized_pnl=realized_pnl,
                 unrealized_pnl=unrealized_pnl,
                 transaction_cost=transaction_cost,
