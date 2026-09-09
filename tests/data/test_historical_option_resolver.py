@@ -924,3 +924,71 @@ def test_next_month_skips_month_without_future_expiry() -> None:
     )
 
     assert result.instrument.expiry == "2026-11-05"
+
+
+def test_next_month_crosses_year_boundary() -> None:
+    timestamp = datetime(2026, 12, 20, 10, 0, tzinfo=UTC)
+
+    chain = make_chain(
+        quotes=(
+            make_quote(
+                strike=55000.0,
+                option_type=OptionType.CALL,
+                expiry="2026-12-24",
+                timestamp=timestamp,
+            ),
+            make_quote(
+                strike=55000.0,
+                option_type=OptionType.CALL,
+                expiry="2027-01-28",
+                timestamp=timestamp,
+            ),
+        ),
+        timestamp=timestamp,
+    )
+
+    result = HistoricalOptionContractResolver().resolve(
+        selector(expiry_selection=ExpirySelection.NEXT_MONTH),
+        chain,
+        as_of=timestamp,
+        signal_underlying_price=chain.underlying_price,
+    )
+
+    assert result.instrument.expiry == "2027-01-28"
+
+
+def test_current_month_uses_historical_as_of_month() -> None:
+    timestamp = datetime(2027, 1, 5, 10, 0, tzinfo=UTC)
+
+    chain = make_chain(
+        quotes=(
+            make_quote(
+                strike=55000.0,
+                option_type=OptionType.CALL,
+                expiry="2026-12-31",
+                timestamp=timestamp,
+            ),
+            make_quote(
+                strike=55000.0,
+                option_type=OptionType.CALL,
+                expiry="2027-01-28",
+                timestamp=timestamp,
+            ),
+            make_quote(
+                strike=55000.0,
+                option_type=OptionType.CALL,
+                expiry="2027-02-25",
+                timestamp=timestamp,
+            ),
+        ),
+        timestamp=timestamp,
+    )
+
+    result = HistoricalOptionContractResolver().resolve(
+        selector(expiry_selection=ExpirySelection.CURRENT_MONTH),
+        chain,
+        as_of=timestamp,
+        signal_underlying_price=chain.underlying_price,
+    )
+
+    assert result.instrument.expiry == "2027-01-28"
