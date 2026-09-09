@@ -153,9 +153,47 @@ def test_atm_selects_nearest_available_strike() -> None:
         selector(),
         chain,
         as_of=timestamp,
+        signal_underlying_price=chain.underlying_price,
     )
 
     assert result.instrument.strike == 55000.0
+
+
+def test_atm_uses_signal_time_underlying_price_not_stale_chain_price() -> None:
+    timestamp = datetime(2026, 9, 9, 10, 0, tzinfo=UTC)
+
+    chain = make_chain(
+        underlying_price=100.0,
+        quotes=(
+            make_quote(
+                strike=100.0,
+                option_type=OptionType.CALL,
+                timestamp=timestamp,
+            ),
+            make_quote(
+                strike=105.0,
+                option_type=OptionType.CALL,
+                timestamp=timestamp,
+            ),
+            make_quote(
+                strike=110.0,
+                option_type=OptionType.CALL,
+                timestamp=timestamp,
+            ),
+        ),
+    )
+
+    result = HistoricalOptionContractResolver().resolve(
+        selector(
+            option_type=OptionType.CALL,
+            strike_selection=StrikeSelection.ATM,
+        ),
+        chain,
+        as_of=timestamp,
+        signal_underlying_price=106.0,
+    )
+
+    assert result.instrument.strike == 105.0
 
 
 def test_itm_call_selects_lowest_strike_above_or_equal_to_boundary() -> None:
@@ -188,6 +226,7 @@ def test_itm_call_selects_lowest_strike_above_or_equal_to_boundary() -> None:
         ),
         chain,
         as_of=timestamp,
+        signal_underlying_price=chain.underlying_price,
     )
 
     assert result.instrument.strike == 55000.0
@@ -223,6 +262,7 @@ def test_otm_call_selects_lowest_strike_above_underlying() -> None:
         ),
         chain,
         as_of=timestamp,
+        signal_underlying_price=chain.underlying_price,
     )
 
     assert result.instrument.strike == 55100.0
@@ -258,6 +298,7 @@ def test_itm_put_selects_highest_strike_below_or_equal_to_boundary() -> None:
         ),
         chain,
         as_of=timestamp,
+        signal_underlying_price=chain.underlying_price,
     )
 
     assert result.instrument.strike == 55100.0
@@ -293,6 +334,7 @@ def test_otm_put_selects_highest_strike_below_underlying() -> None:
         ),
         chain,
         as_of=timestamp,
+        signal_underlying_price=chain.underlying_price,
     )
 
     assert result.instrument.strike == 55000.0
@@ -346,6 +388,7 @@ def test_resolver_rejects_offset_until_semantics_are_defined() -> None:
             offset_selector,
             chain,
             as_of=timestamp,
+            signal_underlying_price=chain.underlying_price,
         )
 
 
@@ -370,6 +413,7 @@ def test_exact_expiry_unavailable_is_rejected() -> None:
             ),
             chain,
             as_of=timestamp,
+            signal_underlying_price=chain.underlying_price,
         )
 
 
@@ -393,6 +437,7 @@ def test_exact_strike_unavailable_is_rejected() -> None:
             ),
             chain,
             as_of=timestamp,
+            signal_underlying_price=chain.underlying_price,
         )
 
 
@@ -413,6 +458,7 @@ def test_missing_option_type_is_rejected() -> None:
             selector(option_type=OptionType.PUT),
             chain,
             as_of=timestamp,
+            signal_underlying_price=chain.underlying_price,
         )
 
 
@@ -438,6 +484,7 @@ def test_atm_tie_breaks_to_lower_strike_deterministically() -> None:
         selector(),
         chain,
         as_of=timestamp,
+        signal_underlying_price=chain.underlying_price,
     )
 
     assert result.instrument.strike == 55000.0
@@ -483,6 +530,7 @@ def test_no_itm_call_strike_is_rejected() -> None:
             ),
             chain,
             as_of=timestamp,
+            signal_underlying_price=chain.underlying_price,
         )
 
 
@@ -516,6 +564,7 @@ def test_current_week_selects_first_available_future_expiry() -> None:
         selector(expiry_selection=ExpirySelection.CURRENT_WEEK),
         chain,
         as_of=timestamp,
+        signal_underlying_price=chain.underlying_price,
     )
 
     assert result.instrument.expiry == "2026-09-10"
@@ -551,6 +600,7 @@ def test_next_week_selects_second_available_future_expiry() -> None:
         selector(expiry_selection=ExpirySelection.NEXT_WEEK),
         chain,
         as_of=timestamp,
+        signal_underlying_price=chain.underlying_price,
     )
 
     assert result.instrument.expiry == "2026-09-17"
@@ -586,6 +636,7 @@ def test_current_month_selects_first_available_expiry_in_current_month() -> None
         selector(expiry_selection=ExpirySelection.CURRENT_MONTH),
         chain,
         as_of=timestamp,
+        signal_underlying_price=chain.underlying_price,
     )
 
     assert result.instrument.expiry == "2026-09-10"
@@ -627,6 +678,7 @@ def test_next_month_selects_first_available_expiry_in_next_month() -> None:
         selector(expiry_selection=ExpirySelection.NEXT_MONTH),
         chain,
         as_of=timestamp,
+        signal_underlying_price=chain.underlying_price,
     )
 
     assert result.instrument.expiry == "2026-10-01"

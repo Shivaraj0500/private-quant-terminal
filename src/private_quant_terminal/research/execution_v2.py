@@ -237,6 +237,7 @@ class ResearchV2Executor:
                                 leg.option,
                                 chain,
                                 as_of=candle.timestamp,
+                                signal_underlying_price=market.underlying_price,
                             )
 
                             option_candle = (
@@ -488,4 +489,5 @@ class ResearchV2Executor:
             low=candle.low,
             close=candle.close,
             volume=candle.volume,
+            underlying_price=candle.close,
         )

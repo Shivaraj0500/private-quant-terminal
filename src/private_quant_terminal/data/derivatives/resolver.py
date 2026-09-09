@@ -27,6 +27,7 @@ class HistoricalOptionContractResolver:
         chain: HistoricalOptionChainSnapshot,
         *,
         as_of: datetime,
+        signal_underlying_price: float | None = None,
     ) -> HistoricalOptionContract:
         self._validate_as_of(chain, as_of)
 
@@ -66,10 +67,23 @@ class HistoricalOptionContractResolver:
                 "No historical option contracts match the requested expiry."
             )
 
+        if (
+            selector.strike_selection is not StrikeSelection.EXACT
+            and signal_underlying_price is None
+        ):
+            raise ValueError(
+                "signal_underlying_price is required for "
+                "ATM/ITM/OTM strike selection."
+            )
+
         strike = self._resolve_strike(
             selector,
             expiry_quotes,
-            chain.underlying_price,
+            (
+                chain.underlying_price
+                if signal_underlying_price is None
+                else signal_underlying_price
+            ),
         )
 
         matches = tuple(
