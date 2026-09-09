@@ -7,12 +7,12 @@ from private_quant_terminal.data.identity import (
     candle_dataset_hash,
 )
 from private_quant_terminal.models import Candle
+from private_quant_terminal.research.evidence_v2 import (
+    ResearchV2EvidenceAdapter,
+)
 from private_quant_terminal.research.execution import (
     ResearchExecutionRequest,
     ResearchExecutionResult,
-)
-from private_quant_terminal.research.evidence_v2 import (
-    ResearchV2EvidenceAdapter,
 )
 from private_quant_terminal.research.execution_v2 import (
     ResearchV2ExecutionRequest,
@@ -387,6 +387,7 @@ class ResearchRunService:
             performance = ResearchPerformanceAnalyzer().analyze(
                 execution,
                 simulation_steps=v2_execution.simulation_steps,
+                option_fills=v2_execution.fills,
             )
             intelligence = ResearchIntelligenceAnalyzer().analyze(
                 performance=performance,

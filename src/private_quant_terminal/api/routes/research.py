@@ -3,13 +3,15 @@ import json
 from fastapi import APIRouter, HTTPException, Request
 
 from private_quant_terminal.api.schemas.research import (
+    ResearchBehaviorDiagnosticsResponse,
+    ResearchBehaviorFindingResponse,
     ResearchEquityPointResponse,
     ResearchEventResponse,
     ResearchExecutionResponse,
     ResearchIntegrityResponse,
     ResearchIntelligenceResponse,
-    ResearchBehaviorDiagnosticsResponse,
-    ResearchBehaviorFindingResponse,
+    ResearchOptionDiagnosticsResponse,
+    ResearchOptionTradeEvidenceResponse,
     ResearchPerformanceResponse,
     ResearchRiskDiagnosticsResponse,
     ResearchRiskFindingResponse,
@@ -262,6 +264,26 @@ def _persisted_result_response(
                 )
                 for finding in performance["risk_findings"]
             ],
+            option_diagnostics=ResearchOptionDiagnosticsResponse(
+                option_fill_count=performance["option_diagnostics"]["option_fill_count"],
+                option_trade_count=performance["option_diagnostics"]["option_trade_count"],
+                call_trade_count=performance["option_diagnostics"]["call_trade_count"],
+                put_trade_count=performance["option_diagnostics"]["put_trade_count"],
+                winning_option_trade_count=performance["option_diagnostics"]["winning_option_trade_count"],
+                losing_option_trade_count=performance["option_diagnostics"]["losing_option_trade_count"],
+                option_net_pnl=performance["option_diagnostics"]["option_net_pnl"],
+                average_option_trade=performance["option_diagnostics"]["average_option_trade"],
+                expiry_day_trade_count=performance["option_diagnostics"]["expiry_day_trade_count"],
+                expiry_day_net_pnl=performance["option_diagnostics"]["expiry_day_net_pnl"],
+                pre_expiry_trade_count=performance["option_diagnostics"]["pre_expiry_trade_count"],
+                pre_expiry_net_pnl=performance["option_diagnostics"]["pre_expiry_net_pnl"],
+                strike_distribution=list(performance["option_diagnostics"]["strike_distribution"]),
+                expiry_distribution=list(performance["option_diagnostics"]["expiry_distribution"]),
+                trades=[
+                    ResearchOptionTradeEvidenceResponse(**trade)
+                    for trade in performance["option_diagnostics"]["trades"]
+                ],
+            ),
         ),
         intelligence=(
             ResearchIntelligenceResponse(
@@ -431,6 +453,53 @@ def _to_response(result) -> ResearchRunResponse:
                 )
                 for finding in result.performance.risk_findings
             ],
+            option_diagnostics=ResearchOptionDiagnosticsResponse(
+                option_fill_count=result.performance.option_diagnostics.option_fill_count,
+                option_trade_count=result.performance.option_diagnostics.option_trade_count,
+                call_trade_count=result.performance.option_diagnostics.call_trade_count,
+                put_trade_count=result.performance.option_diagnostics.put_trade_count,
+                winning_option_trade_count=(
+                    result.performance.option_diagnostics.winning_option_trade_count
+                ),
+                losing_option_trade_count=(
+                    result.performance.option_diagnostics.losing_option_trade_count
+                ),
+                option_net_pnl=result.performance.option_diagnostics.option_net_pnl,
+                average_option_trade=result.performance.option_diagnostics.average_option_trade,
+                expiry_day_trade_count=(
+                    result.performance.option_diagnostics.expiry_day_trade_count
+                ),
+                expiry_day_net_pnl=result.performance.option_diagnostics.expiry_day_net_pnl,
+                pre_expiry_trade_count=(
+                    result.performance.option_diagnostics.pre_expiry_trade_count
+                ),
+                pre_expiry_net_pnl=result.performance.option_diagnostics.pre_expiry_net_pnl,
+                strike_distribution=list(
+                    result.performance.option_diagnostics.strike_distribution
+                ),
+                expiry_distribution=list(
+                    result.performance.option_diagnostics.expiry_distribution
+                ),
+                trades=[
+                    ResearchOptionTradeEvidenceResponse(
+                        group_id=trade.group_id,
+                        instrument_identifier=trade.instrument_identifier,
+                        option_type=trade.option_type,
+                        strike=trade.strike,
+                        expiry=trade.expiry,
+                        entry_time=trade.entry_time,
+                        exit_time=trade.exit_time,
+                        entry_price=trade.entry_price,
+                        exit_price=trade.exit_price,
+                        quantity=trade.quantity,
+                        net_pnl=trade.net_pnl,
+                        holding_time_seconds=trade.holding_time_seconds,
+                        expiry_day=trade.expiry_day,
+                        pre_expiry=trade.pre_expiry,
+                    )
+                    for trade in result.performance.option_diagnostics.trades
+                ],
+            ),
         ),
         intelligence=(
             ResearchIntelligenceResponse(

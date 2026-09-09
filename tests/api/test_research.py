@@ -111,6 +111,25 @@ def test_get_research_run_returns_complete_persisted_evidence() -> None:
     assert data["performance"]["risk_findings"]
     assert data["performance"]["risk_findings"][0]["category"] == "data_availability"
 
+    assert "option_diagnostics" in data["performance"]
+    option_diagnostics = data["performance"]["option_diagnostics"]
+
+    assert option_diagnostics["option_fill_count"] == 0
+    assert option_diagnostics["option_trade_count"] == 0
+    assert option_diagnostics["call_trade_count"] == 0
+    assert option_diagnostics["put_trade_count"] == 0
+    assert option_diagnostics["winning_option_trade_count"] == 0
+    assert option_diagnostics["losing_option_trade_count"] == 0
+    assert option_diagnostics["option_net_pnl"] == 0.0
+    assert option_diagnostics["average_option_trade"] == 0.0
+    assert option_diagnostics["expiry_day_trade_count"] == 0
+    assert option_diagnostics["expiry_day_net_pnl"] == 0.0
+    assert option_diagnostics["pre_expiry_trade_count"] == 0
+    assert option_diagnostics["pre_expiry_net_pnl"] == 0.0
+    assert option_diagnostics["strike_distribution"] == []
+    assert option_diagnostics["expiry_distribution"] == []
+    assert option_diagnostics["trades"] == []
+
 
 def test_get_unknown_research_run_returns_404() -> None:
     client = make_client()

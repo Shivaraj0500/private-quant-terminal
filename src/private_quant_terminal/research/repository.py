@@ -552,6 +552,9 @@ def _json_safe(value):
     if isinstance(value, (list, tuple)):
         return [_json_safe(item) for item in value]
 
+    if isinstance(value, datetime):
+        return value.isoformat()
+
     if isinstance(value, timedelta):
         return value.total_seconds()
 

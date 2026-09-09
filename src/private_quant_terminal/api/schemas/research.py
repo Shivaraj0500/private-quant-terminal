@@ -109,6 +109,41 @@ class ResearchBehaviorDiagnosticsResponse(BaseModel):
     loss_by_entry_hour: list[tuple[int, float]]
 
 
+class ResearchOptionTradeEvidenceResponse(BaseModel):
+    group_id: str
+    instrument_identifier: str
+    option_type: str
+    strike: float
+    expiry: str
+    entry_time: datetime
+    exit_time: datetime
+    entry_price: float
+    exit_price: float
+    quantity: float
+    net_pnl: float
+    holding_time_seconds: float
+    expiry_day: bool
+    pre_expiry: bool
+
+
+class ResearchOptionDiagnosticsResponse(BaseModel):
+    option_fill_count: int
+    option_trade_count: int
+    call_trade_count: int
+    put_trade_count: int
+    winning_option_trade_count: int
+    losing_option_trade_count: int
+    option_net_pnl: float
+    average_option_trade: float
+    expiry_day_trade_count: int
+    expiry_day_net_pnl: float
+    pre_expiry_trade_count: int
+    pre_expiry_net_pnl: float
+    strike_distribution: list[tuple[float, int]]
+    expiry_distribution: list[tuple[str, int]]
+    trades: list[ResearchOptionTradeEvidenceResponse]
+
+
 class ResearchRiskDiagnosticsResponse(BaseModel):
     observation_count: int
     maximum_gross_exposure: float
@@ -151,6 +186,7 @@ class ResearchPerformanceResponse(BaseModel):
     behavior_findings: list[ResearchBehaviorFindingResponse]
     risk_diagnostics: ResearchRiskDiagnosticsResponse
     risk_findings: list[ResearchRiskFindingResponse]
+    option_diagnostics: ResearchOptionDiagnosticsResponse
 
 
 class ResearchEquityPointResponse(BaseModel):

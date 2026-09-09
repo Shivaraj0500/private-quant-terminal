@@ -8,9 +8,21 @@ from private_quant_terminal.portfolio.returns import simple_returns
 from private_quant_terminal.portfolio.risk_adjusted import (
     calculate_risk_adjusted_metrics,
 )
+from private_quant_terminal.research.behavior_diagnostics import (
+    ResearchBehaviorDiagnostics,
+    ResearchBehaviorDiagnosticsCalculator,
+)
+from private_quant_terminal.research.behavior_findings import (
+    ResearchBehaviorFinding,
+    ResearchBehaviorFindingsCalculator,
+)
 from private_quant_terminal.research.execution import (
     ResearchExecutionEventType,
     ResearchExecutionResult,
+)
+from private_quant_terminal.research.option_diagnostics import (
+    ResearchOptionDiagnostics,
+    ResearchOptionDiagnosticsCalculator,
 )
 from private_quant_terminal.research.risk_diagnostics import (
     ResearchRiskDiagnostics,
@@ -19,14 +31,6 @@ from private_quant_terminal.research.risk_diagnostics import (
 from private_quant_terminal.research.risk_findings import (
     ResearchRiskFinding,
     ResearchRiskFindingsCalculator,
-)
-from private_quant_terminal.research.behavior_diagnostics import (
-    ResearchBehaviorDiagnostics,
-    ResearchBehaviorDiagnosticsCalculator,
-)
-from private_quant_terminal.research.behavior_findings import (
-    ResearchBehaviorFinding,
-    ResearchBehaviorFindingsCalculator,
 )
 from private_quant_terminal.research.trade_analytics import (
     ResearchTradeAnalytics,
@@ -58,6 +62,7 @@ class ResearchPerformanceReport:
     behavior_findings: tuple[ResearchBehaviorFinding, ...]
     risk_diagnostics: ResearchRiskDiagnostics
     risk_findings: tuple[ResearchRiskFinding, ...]
+    option_diagnostics: ResearchOptionDiagnostics
 
 
 class ResearchPerformanceAnalyzer:
@@ -67,6 +72,7 @@ class ResearchPerformanceAnalyzer:
         self,
         execution: ResearchExecutionResult,
         simulation_steps=(),
+        option_fills=(),
     ) -> ResearchPerformanceReport:
         """Analyze the completed research execution."""
 
@@ -123,6 +129,9 @@ class ResearchPerformanceAnalyzer:
         risk_findings = ResearchRiskFindingsCalculator().calculate(
             risk_diagnostics,
         )
+        option_diagnostics = ResearchOptionDiagnosticsCalculator().calculate(
+            tuple(option_fills),
+        )
 
         return ResearchPerformanceReport(
             trading_performance=trading_performance,
@@ -136,6 +145,7 @@ class ResearchPerformanceAnalyzer:
             behavior_findings=behavior_findings,
             risk_diagnostics=risk_diagnostics,
             risk_findings=risk_findings,
+            option_diagnostics=option_diagnostics,
         )
 
     @staticmethod
