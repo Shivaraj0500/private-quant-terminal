@@ -188,7 +188,18 @@ class ExecutionOrchestrator:
         position: PositionContext | None = None,
         variables: tuple[StrategyVariable, ...] = (),
     ) -> StrategyRuntimeContext:
-        """Build an evaluation context from current runtime state."""
+        """Build a point-in-time evaluation context from runtime state."""
+
+        session = self.runtime_state.session
+        session = SessionContext(
+            current_time=market.timestamp,
+            entries_today=session.entries_today,
+            trades_today=session.trades_today,
+            bars_since_entry=session.bars_since_entry,
+            minutes_since_entry=session.minutes_since_entry,
+            last_entry_time=session.last_entry_time,
+            last_exit_time=session.last_exit_time,
+        )
 
         return StrategyRuntimeContext(
             market=market,
@@ -197,7 +208,7 @@ class ExecutionOrchestrator:
                 if position is not None
                 else self._position_context()
             ),
-            session=self.runtime_state.session,
+            session=session,
             variables=variables,
             variable_store=self.variable_store,
         )

@@ -1540,7 +1540,13 @@ def test_build_runtime_context_defaults_position_to_empty() -> None:
 
     assert context.position.quantity == 0.0
     assert context.position.entry_price is None
-    assert context.session == orchestrator.runtime_state.session
+    assert context.session.current_time == timestamp
+    assert context.session.entries_today == orchestrator.runtime_state.session.entries_today
+    assert context.session.trades_today == orchestrator.runtime_state.session.trades_today
+    assert context.session.bars_since_entry == orchestrator.runtime_state.session.bars_since_entry
+    assert context.session.minutes_since_entry == orchestrator.runtime_state.session.minutes_since_entry
+    assert context.session.last_entry_time == orchestrator.runtime_state.session.last_entry_time
+    assert context.session.last_exit_time == orchestrator.runtime_state.session.last_exit_time
 
 
 def test_build_runtime_context_preserves_custom_variables() -> None:
