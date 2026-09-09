@@ -12,6 +12,7 @@ from private_quant_terminal.api.schemas.research import (
     ResearchRunRequest,
     ResearchRunResponse,
     ResearchRunSummary,
+    ResearchTradeAnalyticsResponse,
     ResearchTradeResponse,
 )
 from private_quant_terminal.data.identity import create_dataset_identity
@@ -46,11 +47,7 @@ def execute_research_run(
             detail=str(exc),
         ) from exc
 
-    candles = tuple(
-        container.market_data_service.get_candles(
-            payload.symbol
-        )
-    )
+    candles = tuple(container.market_data_service.get_candles(payload.symbol))
 
     if not candles:
         raise HTTPException(
@@ -68,9 +65,7 @@ def execute_research_run(
         result = container.research_service.create_run(
             strategy_version=strategy_version,
             dataset=dataset,
-            parameters=ResearchParameters(
-                values=payload.parameters
-            ),
+            parameters=ResearchParameters(values=payload.parameters),
         )
 
         analysis = container.research_service.execute_run(
@@ -100,10 +95,7 @@ def list_research_runs(
 
     container = request.app.state.container
 
-    return [
-        _run_summary(run)
-        for run in container.research_repository.list()
-    ]
+    return [_run_summary(run) for run in container.research_repository.list()]
 
 
 @router.get(
@@ -120,8 +112,8 @@ def get_research_run(
 
     try:
         run = container.research_repository.get(run_id)
-        execution, integrity, performance, intelligence = (
-            container.research_repository.get_result(run_id)
+        execution, integrity, performance, intelligence = container.research_repository.get_result(
+            run_id
         )
     except KeyError as exc:
         raise HTTPException(
@@ -208,6 +200,19 @@ def _persisted_result_response(
                 0.0,
             ),
             calmar_ratio=performance.get("calmar_ratio", 0.0),
+            trade_analytics=ResearchTradeAnalyticsResponse(
+                total_trades=performance["trade_analytics"]["total_trades"],
+                average_trade=performance["trade_analytics"]["average_trade"],
+                best_trade=performance["trade_analytics"]["best_trade"],
+                worst_trade=performance["trade_analytics"]["worst_trade"],
+                average_holding_time_seconds=performance["trade_analytics"]["average_holding_time"],
+                shortest_holding_time_seconds=performance["trade_analytics"][
+                    "shortest_holding_time"
+                ],
+                longest_holding_time_seconds=performance["trade_analytics"]["longest_holding_time"],
+                max_consecutive_wins=performance["trade_analytics"]["max_consecutive_wins"],
+                max_consecutive_losses=performance["trade_analytics"]["max_consecutive_losses"],
+            ),
         ),
         intelligence=(
             ResearchIntelligenceResponse(
@@ -303,6 +308,23 @@ def _to_response(result) -> ResearchRunResponse:
             sortino_ratio=risk.sortino_ratio,
             downside_deviation=risk.downside_deviation,
             calmar_ratio=risk.calmar_ratio,
+            trade_analytics=ResearchTradeAnalyticsResponse(
+                total_trades=result.performance.trade_analytics.total_trades,
+                average_trade=result.performance.trade_analytics.average_trade,
+                best_trade=result.performance.trade_analytics.best_trade,
+                worst_trade=result.performance.trade_analytics.worst_trade,
+                average_holding_time_seconds=(
+                    result.performance.trade_analytics.average_holding_time.total_seconds()
+                ),
+                shortest_holding_time_seconds=(
+                    result.performance.trade_analytics.shortest_holding_time.total_seconds()
+                ),
+                longest_holding_time_seconds=(
+                    result.performance.trade_analytics.longest_holding_time.total_seconds()
+                ),
+                max_consecutive_wins=(result.performance.trade_analytics.max_consecutive_wins),
+                max_consecutive_losses=(result.performance.trade_analytics.max_consecutive_losses),
+            ),
         ),
         intelligence=(
             ResearchIntelligenceResponse(
@@ -310,9 +332,7 @@ def _to_response(result) -> ResearchRunResponse:
                 confidence=result.intelligence.confidence.value,
                 strengths=list(result.intelligence.strengths),
                 limitations=list(result.intelligence.limitations),
-                next_investigations=list(
-                    result.intelligence.next_investigations
-                ),
+                next_investigations=list(result.intelligence.next_investigations),
                 evidence=[
                     {
                         "category": reference.category,

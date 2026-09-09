@@ -78,6 +78,18 @@ class ResearchIntegrityResponse(BaseModel):
     findings: list[ResearchIntegrityFindingResponse]
 
 
+class ResearchTradeAnalyticsResponse(BaseModel):
+    total_trades: int
+    average_trade: float
+    best_trade: float
+    worst_trade: float
+    average_holding_time_seconds: float
+    shortest_holding_time_seconds: float
+    longest_holding_time_seconds: float
+    max_consecutive_wins: int
+    max_consecutive_losses: int
+
+
 class ResearchPerformanceResponse(BaseModel):
     realized_pnl: float
     unrealized_pnl: float
@@ -95,6 +107,7 @@ class ResearchPerformanceResponse(BaseModel):
     sortino_ratio: float
     downside_deviation: float
     calmar_ratio: float
+    trade_analytics: ResearchTradeAnalyticsResponse
 
 
 class ResearchEquityPointResponse(BaseModel):

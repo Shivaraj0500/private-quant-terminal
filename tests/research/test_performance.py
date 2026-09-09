@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from math import isclose
 
 from private_quant_terminal.research import (
@@ -64,6 +64,16 @@ def test_analyzer_returns_trade_performance() -> None:
     assert result.trading_performance.winning_trades == 1
     assert result.trading_performance.losing_trades == 1
     assert result.trading_performance.win_rate == 50.0
+
+    assert result.trade_analytics.total_trades == 2
+    assert result.trade_analytics.average_trade == 23.0
+    assert result.trade_analytics.best_trade == 98.0
+    assert result.trade_analytics.worst_trade == -52.0
+    assert result.trade_analytics.shortest_holding_time == timedelta(days=1)
+    assert result.trade_analytics.longest_holding_time == timedelta(days=1)
+    assert result.trade_analytics.average_holding_time == timedelta(days=1)
+    assert result.trade_analytics.max_consecutive_wins == 1
+    assert result.trade_analytics.max_consecutive_losses == 1
 
 
 def test_analyzer_calculates_equity_returns() -> None:

@@ -1,6 +1,6 @@
 import json
 from dataclasses import asdict, is_dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from private_quant_terminal.persistence import Database
 from private_quant_terminal.research.execution import (
@@ -63,10 +63,7 @@ def _deserialize_integrity(
                 ResearchIntegrityFinding(
                     severity=ResearchIntegritySeverity.WARN,
                     code="INTEGRITY_NOT_PERSISTED",
-                    message=(
-                        "Integrity evidence was not persisted for this "
-                        "research result."
-                    ),
+                    message=("Integrity evidence was not persisted for this research result."),
                 ),
             ),
         )
@@ -135,21 +132,17 @@ class ResearchRunRepository:
 
             columns = {
                 row["name"]
-                for row in connection.execute(
-                    "PRAGMA table_info(research_run_results)"
-                ).fetchall()
+                for row in connection.execute("PRAGMA table_info(research_run_results)").fetchall()
             }
 
             if "integrity_json" not in columns:
                 connection.execute(
-                    "ALTER TABLE research_run_results "
-                    "ADD COLUMN integrity_json TEXT"
+                    "ALTER TABLE research_run_results ADD COLUMN integrity_json TEXT"
                 )
 
             if "intelligence_json" not in columns:
                 connection.execute(
-                    "ALTER TABLE research_run_results "
-                    "ADD COLUMN intelligence_json TEXT"
+                    "ALTER TABLE research_run_results ADD COLUMN intelligence_json TEXT"
                 )
 
     def save(self, run: ResearchRun) -> None:
@@ -172,8 +165,7 @@ class ResearchRunRepository:
                 if (
                     existing["strategy_hash"] != run.strategy_hash
                     or existing["dataset_hash"] != run.dataset_hash
-                    or existing["parameters_hash"]
-                    != run.parameters_hash
+                    or existing["parameters_hash"] != run.parameters_hash
                 ):
                     raise ValueError(
                         "Research run identity is immutable: "
@@ -312,7 +304,9 @@ class ResearchRunRepository:
                     json.dumps(
                         intelligence_payload,
                         separators=(",", ":"),
-                    ) if intelligence_payload is not None else None,
+                    )
+                    if intelligence_payload is not None
+                    else None,
                     datetime.now(UTC).isoformat(),
                 ),
             )
@@ -346,16 +340,12 @@ class ResearchRunRepository:
             ).fetchone()
 
         if row is None:
-            raise KeyError(
-                f"No research result stored for run: {run_id}"
-            )
+            raise KeyError(f"No research result stored for run: {run_id}")
 
         events = tuple(
             ResearchExecutionEvent(
                 timestamp=datetime.fromisoformat(item["timestamp"]),
-                event_type=ResearchExecutionEventType(
-                    item["event_type"]
-                ),
+                event_type=ResearchExecutionEventType(item["event_type"]),
                 symbol=item["symbol"],
                 price=float(item["price"]),
                 quantity=float(item["quantity"]),
@@ -394,16 +384,12 @@ class ResearchRunRepository:
             final_equity=float(row["final_equity"]),
         )
 
-        integrity_payload = json.loads(
-            row["integrity_json"]
-        ) if row["integrity_json"] else None
+        integrity_payload = json.loads(row["integrity_json"]) if row["integrity_json"] else None
 
         integrity = _deserialize_integrity(integrity_payload)
 
         intelligence_payload = (
-            json.loads(row["intelligence_json"])
-            if row["intelligence_json"]
-            else None
+            json.loads(row["intelligence_json"]) if row["intelligence_json"] else None
         )
         intelligence = _deserialize_intelligence(intelligence_payload)
 
@@ -442,9 +428,7 @@ class ResearchRunRepository:
             ).fetchone()
 
             if row is None:
-                raise KeyError(
-                    f"Unknown research run: {run_id}"
-                )
+                raise KeyError(f"Unknown research run: {run_id}")
 
             current_status = ResearchRunStatus(row["status"])
 
@@ -563,13 +547,13 @@ def _json_safe(value):
         return _json_safe(asdict(value))
 
     if isinstance(value, dict):
-        return {
-            str(key): _json_safe(item)
-            for key, item in value.items()
-        }
+        return {str(key): _json_safe(item) for key, item in value.items()}
 
     if isinstance(value, (list, tuple)):
         return [_json_safe(item) for item in value]
+
+    if isinstance(value, timedelta):
+        return value.total_seconds()
 
     if hasattr(value, "value"):
         return value.value

@@ -12,6 +12,10 @@ from private_quant_terminal.research.execution import (
     ResearchExecutionEventType,
     ResearchExecutionResult,
 )
+from private_quant_terminal.research.trade_analytics import (
+    ResearchTradeAnalytics,
+    ResearchTradeAnalyticsCalculator,
+)
 
 
 @dataclass(frozen=True)
@@ -33,6 +37,7 @@ class ResearchPerformanceReport:
     max_drawdown_percent: float
     risk_adjusted: object
     evidence_summary: ResearchEvidenceSummary
+    trade_analytics: ResearchTradeAnalytics
 
 
 class ResearchPerformanceAnalyzer:
@@ -44,13 +49,8 @@ class ResearchPerformanceAnalyzer:
     ) -> ResearchPerformanceReport:
         """Analyze the completed research execution."""
 
-        trading_performance = (
-            PortfolioPerformanceCalculator().calculate(
-                tuple(
-                    self._to_closed_trade(trade)
-                    for trade in execution.trades
-                )
-            )
+        trading_performance = PortfolioPerformanceCalculator().calculate(
+            tuple(self._to_closed_trade(trade) for trade in execution.trades)
         )
 
         returns = self._calculate_returns(
@@ -60,13 +60,11 @@ class ResearchPerformanceAnalyzer:
             ),
         )
 
-        max_drawdown, max_drawdown_percent = (
-            self._calculate_max_drawdown(
-                tuple(
+        max_drawdown, max_drawdown_percent = self._calculate_max_drawdown(
+            tuple(
                 point.equity if hasattr(point, "equity") else float(point)
                 for point in execution.equity_curve
             ),
-            )
         )
 
         evidence_summary = ResearchEvidenceSummary(
@@ -89,6 +87,10 @@ class ResearchPerformanceAnalyzer:
             max_drawdown=max_drawdown,
         )
 
+        trade_analytics = ResearchTradeAnalyticsCalculator().calculate(
+            execution.trades,
+        )
+
         return ResearchPerformanceReport(
             trading_performance=trading_performance,
             returns=returns,
@@ -96,6 +98,7 @@ class ResearchPerformanceAnalyzer:
             max_drawdown_percent=max_drawdown_percent,
             risk_adjusted=risk_adjusted,
             evidence_summary=evidence_summary,
+            trade_analytics=trade_analytics,
         )
 
     @staticmethod
