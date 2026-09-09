@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 import pytest
 
 from private_quant_terminal.data.derivatives.models import (
+    HistoricalOptionCandle,
     HistoricalOptionChainSnapshot,
     HistoricalOptionContract,
     HistoricalOptionQuote,
@@ -682,3 +683,100 @@ def test_next_month_selects_first_available_expiry_in_next_month() -> None:
     )
 
     assert result.instrument.expiry == "2026-10-01"
+
+def test_chain_provider_returns_latest_snapshot_at_or_before_as_of() -> None:
+    from private_quant_terminal.data.derivatives.provider import (
+        InMemoryHistoricalOptionChainProvider,
+    )
+
+    before = datetime(2026, 9, 9, 9, 59, tzinfo=UTC)
+    signal = datetime(2026, 9, 9, 10, 0, tzinfo=UTC)
+    future = datetime(2026, 9, 9, 10, 1, tzinfo=UTC)
+
+    before_chain = make_chain(
+        timestamp=before,
+        quotes=(
+            make_quote(
+                strike=100.0,
+                option_type=OptionType.CALL,
+                timestamp=before,
+            ),
+        ),
+    )
+    future_chain = make_chain(
+        timestamp=future,
+        quotes=(
+            make_quote(
+                strike=200.0,
+                option_type=OptionType.CALL,
+                timestamp=future,
+            ),
+        ),
+    )
+
+    provider = InMemoryHistoricalOptionChainProvider(
+        (future_chain, before_chain),
+    )
+
+    result = provider.get_latest_chain("BANKNIFTY", signal)
+
+    assert result is not None
+    assert result.timestamp == before
+    assert result.quotes[0].contract.instrument.strike == 100.0
+
+
+def test_option_candle_provider_returns_latest_candle_at_or_before_as_of() -> None:
+    from private_quant_terminal.data.derivatives.candle_provider import (
+        InMemoryHistoricalOptionCandleProvider,
+    )
+    from private_quant_terminal.models import Candle
+
+    contract_time = datetime(2026, 9, 9, 9, 59, tzinfo=UTC)
+    signal = datetime(2026, 9, 9, 10, 0, tzinfo=UTC)
+    future = datetime(2026, 9, 9, 10, 1, tzinfo=UTC)
+
+    instrument = Instrument(
+        symbol="BANKNIFTY",
+        exchange="NSE",
+        instrument_type=InstrumentType.OPTION,
+        expiry="2026-09-24",
+        strike=55000.0,
+        option_type=OptionType.CALL,
+    )
+    contract = HistoricalOptionContract(
+        instrument=instrument,
+        resolved_at=contract_time,
+    )
+
+    candles = (
+        HistoricalOptionCandle(
+            contract=contract,
+            candle=Candle(
+                timestamp=contract_time,
+                open=10.0,
+                high=10.0,
+                low=10.0,
+                close=10.0,
+                volume=100,
+            ),
+        ),
+        HistoricalOptionCandle(
+            contract=contract,
+            candle=Candle(
+                timestamp=future,
+                open=99.0,
+                high=99.0,
+                low=99.0,
+                close=99.0,
+                volume=100,
+            ),
+        ),
+    )
+
+    provider = InMemoryHistoricalOptionCandleProvider(candles)
+
+    result = provider.get_latest_candle(contract, signal)
+
+    assert result is not None
+    assert result.timestamp == contract_time
+    assert result.close == 10.0

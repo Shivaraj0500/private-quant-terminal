@@ -450,3 +450,189 @@ def test_v2_executor_runs_multi_leg_option_position_end_to_end():
     assert result.simulation_steps[0].positions
     assert len(result.simulation_steps[0].positions) == 2
     assert result.simulation_steps[-1].positions == ()
+
+def test_v2_executor_does_not_use_future_option_chain_snapshot() -> None:
+    signal_time = datetime(2026, 1, 2, 10, 0, tzinfo=timezone.utc)
+    chain_time = signal_time - timedelta(minutes=1)
+    future_chain_time = signal_time + timedelta(minutes=1)
+    exit_time = signal_time + timedelta(minutes=1)
+
+    underlying_candles = (
+        Candle(
+            timestamp=signal_time,
+            open=100.0,
+            high=100.0,
+            low=100.0,
+            close=100.0,
+            volume=1000,
+        ),
+        Candle(
+            timestamp=exit_time,
+            open=101.0,
+            high=101.0,
+            low=101.0,
+            close=101.0,
+            volume=1000,
+        ),
+    )
+
+    expiry = "2026-01-08"
+
+    historical_instrument = Instrument(
+        symbol="TEST",
+        exchange="RESEARCH",
+        instrument_type=InstrumentType.OPTION,
+        expiry=expiry,
+        strike=100.0,
+        option_type=OptionType.CALL,
+    )
+    future_instrument = Instrument(
+        symbol="TEST",
+        exchange="RESEARCH",
+        instrument_type=InstrumentType.OPTION,
+        expiry=expiry,
+        strike=200.0,
+        option_type=OptionType.CALL,
+    )
+
+    historical_contract = HistoricalOptionContract(
+        instrument=historical_instrument,
+        resolved_at=chain_time,
+    )
+    future_contract = HistoricalOptionContract(
+        instrument=future_instrument,
+        resolved_at=future_chain_time,
+    )
+
+    historical_chain = HistoricalOptionChainSnapshot(
+        timestamp=chain_time,
+        underlying="TEST",
+        underlying_price=100.0,
+        quotes=(
+            HistoricalOptionQuote(
+                contract=historical_contract,
+                timestamp=chain_time,
+                bid=9.0,
+                ask=11.0,
+                close=10.0,
+            ),
+        ),
+    )
+
+    future_chain = HistoricalOptionChainSnapshot(
+        timestamp=future_chain_time,
+        underlying="TEST",
+        underlying_price=200.0,
+        quotes=(
+            HistoricalOptionQuote(
+                contract=future_contract,
+                timestamp=future_chain_time,
+                bid=19.0,
+                ask=21.0,
+                close=20.0,
+            ),
+        ),
+    )
+
+    option_candles = (
+        HistoricalOptionCandle(
+            contract=historical_contract,
+            candle=Candle(
+                timestamp=signal_time,
+                open=10.0,
+                high=10.0,
+                low=10.0,
+                close=10.0,
+                volume=100,
+            ),
+        ),
+        HistoricalOptionCandle(
+            contract=historical_contract,
+            candle=Candle(
+                timestamp=exit_time,
+                open=6.0,
+                high=6.0,
+                low=6.0,
+                close=6.0,
+                volume=100,
+            ),
+        ),
+    )
+
+    position = PositionGroup(
+        group_id="future-chain-guard",
+        name="Future Chain Guard",
+        legs=(
+            StrategyLeg(
+                action=LegAction.BUY,
+                instrument_type=LegInstrumentType.OPTION,
+                option=OptionSelector(
+                    underlying="TEST",
+                    option_type=StrategyOptionType.CALL,
+                    strike_selection=StrikeSelection.ATM,
+                    expiry_selection=ExpirySelection.EXACT,
+                    expiry=expiry,
+                ),
+            ),
+        ),
+    )
+
+    strategy = StrategyIR(
+        strategy_id="v2-future-chain-guard",
+        name="Future Chain Guard",
+        description="Reject future option chain data during historical execution",
+        version=1,
+        status="VALIDATED",
+        instruments=("TEST",),
+        timeframe="1m",
+        rules=(
+            StrategyRule(
+                rule_id="enter",
+                name="Enter",
+                condition=ComparisonCondition(
+                    left=PriceExpression(field=PriceField.CLOSE),
+                    operator=ComparisonOperator.GREATER_THAN_OR_EQUAL,
+                    right=ConstantExpression(value=99.0),
+                ),
+                actions=(EnterAction(position=position),),
+            ),
+            StrategyRule(
+                rule_id="exit",
+                name="Exit",
+                condition=ComparisonCondition(
+                    left=PriceExpression(field=PriceField.CLOSE),
+                    operator=ComparisonOperator.GREATER_THAN,
+                    right=ConstantExpression(value=100.0),
+                ),
+                actions=(ExitAction(group_id="future-chain-guard"),),
+            ),
+        ),
+    )
+
+    plan = StrategyCompiler().compile(strategy)
+
+    result = ResearchV2Executor(initial_equity=1000.0).execute(
+        ResearchV2ExecutionRequest(
+            plan=plan,
+            candles=underlying_candles,
+            initial_equity=1000.0,
+            run_id="run-v2-future-chain-guard",
+            option_chain_provider=InMemoryHistoricalOptionChainProvider(
+                (future_chain, historical_chain),
+            ),
+            option_candle_provider=InMemoryHistoricalOptionCandleProvider(
+                option_candles,
+            ),
+        )
+    )
+
+    assert len(result.fills) == 2
+
+    entry_fill = result.fills[0]
+    exit_fill = result.fills[1]
+
+    assert entry_fill.instrument.strike == 100.0
+    assert entry_fill.price == 10.0
+    assert exit_fill.instrument.strike == 100.0
+    assert exit_fill.price == 6.0
+    assert result.realized_pnl == -4.0
