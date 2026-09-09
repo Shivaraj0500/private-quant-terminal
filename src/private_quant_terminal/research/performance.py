@@ -12,6 +12,14 @@ from private_quant_terminal.research.execution import (
     ResearchExecutionEventType,
     ResearchExecutionResult,
 )
+from private_quant_terminal.research.risk_diagnostics import (
+    ResearchRiskDiagnostics,
+    ResearchRiskDiagnosticsCalculator,
+)
+from private_quant_terminal.research.risk_findings import (
+    ResearchRiskFinding,
+    ResearchRiskFindingsCalculator,
+)
 from private_quant_terminal.research.behavior_diagnostics import (
     ResearchBehaviorDiagnostics,
     ResearchBehaviorDiagnosticsCalculator,
@@ -48,6 +56,8 @@ class ResearchPerformanceReport:
     trade_analytics: ResearchTradeAnalytics
     behavior_diagnostics: ResearchBehaviorDiagnostics
     behavior_findings: tuple[ResearchBehaviorFinding, ...]
+    risk_diagnostics: ResearchRiskDiagnostics
+    risk_findings: tuple[ResearchRiskFinding, ...]
 
 
 class ResearchPerformanceAnalyzer:
@@ -56,6 +66,7 @@ class ResearchPerformanceAnalyzer:
     def analyze(
         self,
         execution: ResearchExecutionResult,
+        simulation_steps=(),
     ) -> ResearchPerformanceReport:
         """Analyze the completed research execution."""
 
@@ -106,6 +117,12 @@ class ResearchPerformanceAnalyzer:
         behavior_findings = ResearchBehaviorFindingsCalculator().calculate(
             behavior_diagnostics,
         )
+        risk_diagnostics = ResearchRiskDiagnosticsCalculator().calculate(
+            tuple(simulation_steps),
+        )
+        risk_findings = ResearchRiskFindingsCalculator().calculate(
+            risk_diagnostics,
+        )
 
         return ResearchPerformanceReport(
             trading_performance=trading_performance,
@@ -117,6 +134,8 @@ class ResearchPerformanceAnalyzer:
             trade_analytics=trade_analytics,
             behavior_diagnostics=behavior_diagnostics,
             behavior_findings=behavior_findings,
+            risk_diagnostics=risk_diagnostics,
+            risk_findings=risk_findings,
         )
 
     @staticmethod

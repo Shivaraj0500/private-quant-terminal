@@ -11,6 +11,8 @@ from private_quant_terminal.api.schemas.research import (
     ResearchBehaviorDiagnosticsResponse,
     ResearchBehaviorFindingResponse,
     ResearchPerformanceResponse,
+    ResearchRiskDiagnosticsResponse,
+    ResearchRiskFindingResponse,
     ResearchRunRequest,
     ResearchRunResponse,
     ResearchRunSummary,
@@ -239,6 +241,27 @@ def _persisted_result_response(
                 )
                 for finding in performance["behavior_findings"]
             ],
+            risk_diagnostics=ResearchRiskDiagnosticsResponse(
+                observation_count=performance["risk_diagnostics"]["observation_count"],
+                maximum_gross_exposure=performance["risk_diagnostics"]["maximum_gross_exposure"],
+                average_gross_exposure=performance["risk_diagnostics"]["average_gross_exposure"],
+                maximum_net_exposure=performance["risk_diagnostics"]["maximum_net_exposure"],
+                maximum_long_exposure=performance["risk_diagnostics"]["maximum_long_exposure"],
+                maximum_short_exposure=performance["risk_diagnostics"]["maximum_short_exposure"],
+                maximum_position_concentration=performance["risk_diagnostics"]["maximum_position_concentration"],
+                maximum_gross_exposure_ratio=performance["risk_diagnostics"]["maximum_gross_exposure_ratio"],
+                maximum_net_exposure_ratio=performance["risk_diagnostics"]["maximum_net_exposure_ratio"],
+                worst_observation_loss=performance["risk_diagnostics"]["worst_observation_loss"],
+                worst_daily_loss=performance["risk_diagnostics"]["worst_daily_loss"],
+            ),
+            risk_findings=[
+                ResearchRiskFindingResponse(
+                    category=finding["category"],
+                    statement=finding["statement"],
+                    evidence=finding["evidence"],
+                )
+                for finding in performance["risk_findings"]
+            ],
         ),
         intelligence=(
             ResearchIntelligenceResponse(
@@ -386,6 +409,27 @@ def _to_response(result) -> ResearchRunResponse:
                     evidence=finding.evidence,
                 )
                 for finding in result.performance.behavior_findings
+            ],
+            risk_diagnostics=ResearchRiskDiagnosticsResponse(
+                observation_count=result.performance.risk_diagnostics.observation_count,
+                maximum_gross_exposure=result.performance.risk_diagnostics.maximum_gross_exposure,
+                average_gross_exposure=result.performance.risk_diagnostics.average_gross_exposure,
+                maximum_net_exposure=result.performance.risk_diagnostics.maximum_net_exposure,
+                maximum_long_exposure=result.performance.risk_diagnostics.maximum_long_exposure,
+                maximum_short_exposure=result.performance.risk_diagnostics.maximum_short_exposure,
+                maximum_position_concentration=result.performance.risk_diagnostics.maximum_position_concentration,
+                maximum_gross_exposure_ratio=result.performance.risk_diagnostics.maximum_gross_exposure_ratio,
+                maximum_net_exposure_ratio=result.performance.risk_diagnostics.maximum_net_exposure_ratio,
+                worst_observation_loss=result.performance.risk_diagnostics.worst_observation_loss,
+                worst_daily_loss=result.performance.risk_diagnostics.worst_daily_loss,
+            ),
+            risk_findings=[
+                ResearchRiskFindingResponse(
+                    category=finding.category,
+                    statement=finding.statement,
+                    evidence=finding.evidence,
+                )
+                for finding in result.performance.risk_findings
             ],
         ),
         intelligence=(

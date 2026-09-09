@@ -448,6 +448,22 @@ class ResearchV2Executor:
                 action_events=tuple(step_events),
                 fills=tuple(step_fills),
                 positions=position_book.positions(),
+                position_marks=tuple(
+                    (
+                        open_position.instrument.identifier,
+                        (
+                            _latest_option_price(
+                                provider=request.option_candle_provider,
+                                instrument=open_position.instrument,
+                                timestamp=candle.timestamp,
+                            )
+                            if open_position.instrument.instrument_type
+                            == InstrumentType.OPTION
+                            else candle.close
+                        ),
+                    )
+                    for open_position in open_positions
+                ),
                 realized_pnl=realized_pnl,
                 unrealized_pnl=unrealized_pnl,
                 transaction_cost=transaction_cost,

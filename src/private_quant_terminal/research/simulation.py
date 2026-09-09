@@ -83,6 +83,7 @@ class ResearchSimulationStep:
     action_events: tuple[ResearchActionEvent, ...] = ()
     fills: tuple[ResearchFill, ...] = ()
     positions: tuple[ResearchLegPosition, ...] = ()
+    position_marks: tuple[tuple[str, float], ...] = ()
     realized_pnl: float = 0.0
     unrealized_pnl: float = 0.0
     transaction_cost: float = 0.0

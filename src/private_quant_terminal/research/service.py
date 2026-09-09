@@ -385,7 +385,8 @@ class ResearchRunService:
                 )
 
             performance = ResearchPerformanceAnalyzer().analyze(
-                execution
+                execution,
+                simulation_steps=v2_execution.simulation_steps,
             )
             intelligence = ResearchIntelligenceAnalyzer().analyze(
                 performance=performance,

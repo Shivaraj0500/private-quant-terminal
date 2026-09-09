@@ -105,6 +105,12 @@ def test_get_research_run_returns_complete_persisted_evidence() -> None:
     assert data["execution"]["final_equity"] == 100000.0
     assert isinstance(data["performance"]["returns"], list)
 
+    assert "risk_diagnostics" in data["performance"]
+    assert data["performance"]["risk_diagnostics"]["observation_count"] == 0
+    assert "risk_findings" in data["performance"]
+    assert data["performance"]["risk_findings"]
+    assert data["performance"]["risk_findings"][0]["category"] == "data_availability"
+
 
 def test_get_unknown_research_run_returns_404() -> None:
     client = make_client()

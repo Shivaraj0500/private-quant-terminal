@@ -109,6 +109,26 @@ class ResearchBehaviorDiagnosticsResponse(BaseModel):
     loss_by_entry_hour: list[tuple[int, float]]
 
 
+class ResearchRiskDiagnosticsResponse(BaseModel):
+    observation_count: int
+    maximum_gross_exposure: float
+    average_gross_exposure: float
+    maximum_net_exposure: float
+    maximum_long_exposure: float
+    maximum_short_exposure: float
+    maximum_position_concentration: float
+    maximum_gross_exposure_ratio: float
+    maximum_net_exposure_ratio: float
+    worst_observation_loss: float
+    worst_daily_loss: float
+
+
+class ResearchRiskFindingResponse(BaseModel):
+    category: str
+    statement: str
+    evidence: str
+
+
 class ResearchPerformanceResponse(BaseModel):
     realized_pnl: float
     unrealized_pnl: float
@@ -129,6 +149,8 @@ class ResearchPerformanceResponse(BaseModel):
     trade_analytics: ResearchTradeAnalyticsResponse
     behavior_diagnostics: ResearchBehaviorDiagnosticsResponse
     behavior_findings: list[ResearchBehaviorFindingResponse]
+    risk_diagnostics: ResearchRiskDiagnosticsResponse
+    risk_findings: list[ResearchRiskFindingResponse]
 
 
 class ResearchEquityPointResponse(BaseModel):
