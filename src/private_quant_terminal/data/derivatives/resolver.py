@@ -43,8 +43,9 @@ class HistoricalOptionContractResolver:
         quotes = tuple(
             quote
             for quote in chain.quotes
-            if quote.contract.instrument.option_type
-            is selector.option_type
+            if quote.contract.instrument.option_type is not None
+            and quote.contract.instrument.option_type.value
+            == selector.option_type.value
         )
 
         if not quotes:
