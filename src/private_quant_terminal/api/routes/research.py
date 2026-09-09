@@ -8,6 +8,8 @@ from private_quant_terminal.api.schemas.research import (
     ResearchExecutionResponse,
     ResearchIntegrityResponse,
     ResearchIntelligenceResponse,
+    ResearchBehaviorDiagnosticsResponse,
+    ResearchBehaviorFindingResponse,
     ResearchPerformanceResponse,
     ResearchRunRequest,
     ResearchRunResponse,
@@ -178,41 +180,65 @@ def _persisted_result_response(
             final_equity=execution.final_equity,
         ),
         performance=ResearchPerformanceResponse(
-            realized_pnl=performance.get("realized_pnl", 0.0),
-            unrealized_pnl=performance.get("unrealized_pnl", 0.0),
-            total_pnl=performance.get("total_pnl", 0.0),
-            winning_trades=performance.get("winning_trades", 0),
-            losing_trades=performance.get("losing_trades", 0),
-            win_rate=performance.get("win_rate", 0.0),
-            average_win=performance.get("average_win", 0.0),
-            average_loss=performance.get("average_loss", 0.0),
-            profit_factor=performance.get("profit_factor", 0.0),
-            returns=list(performance.get("returns", [])),
-            max_drawdown=performance.get("max_drawdown", 0.0),
-            max_drawdown_percent=performance.get(
-                "max_drawdown_percent",
-                0.0,
-            ),
-            sharpe_ratio=performance.get("sharpe_ratio", 0.0),
-            sortino_ratio=performance.get("sortino_ratio", 0.0),
-            downside_deviation=performance.get(
-                "downside_deviation",
-                0.0,
-            ),
-            calmar_ratio=performance.get("calmar_ratio", 0.0),
+            realized_pnl=performance["trading_performance"]["realized_pnl"],
+            unrealized_pnl=performance["trading_performance"]["unrealized_pnl"],
+            total_pnl=performance["trading_performance"]["total_pnl"],
+            winning_trades=performance["trading_performance"]["winning_trades"],
+            losing_trades=performance["trading_performance"]["losing_trades"],
+            win_rate=performance["trading_performance"]["win_rate"],
+            average_win=performance["trading_performance"]["average_win"],
+            average_loss=performance["trading_performance"]["average_loss"],
+            profit_factor=performance["trading_performance"]["profit_factor"],
+            returns=list(performance["returns"]),
+            max_drawdown=performance["max_drawdown"],
+            max_drawdown_percent=performance["max_drawdown_percent"],
+            sharpe_ratio=performance["risk_adjusted"]["sharpe_ratio"],
+            sortino_ratio=performance["risk_adjusted"]["sortino_ratio"],
+            downside_deviation=performance["risk_adjusted"]["downside_deviation"],
+            calmar_ratio=performance["risk_adjusted"]["calmar_ratio"],
             trade_analytics=ResearchTradeAnalyticsResponse(
                 total_trades=performance["trade_analytics"]["total_trades"],
                 average_trade=performance["trade_analytics"]["average_trade"],
                 best_trade=performance["trade_analytics"]["best_trade"],
                 worst_trade=performance["trade_analytics"]["worst_trade"],
-                average_holding_time_seconds=performance["trade_analytics"]["average_holding_time"],
-                shortest_holding_time_seconds=performance["trade_analytics"][
-                    "shortest_holding_time"
-                ],
-                longest_holding_time_seconds=performance["trade_analytics"]["longest_holding_time"],
+                average_holding_time_seconds=(
+                    performance["trade_analytics"]["average_holding_time"]
+                ),
+                shortest_holding_time_seconds=(
+                    performance["trade_analytics"]["shortest_holding_time"]
+                ),
+                longest_holding_time_seconds=(
+                    performance["trade_analytics"]["longest_holding_time"]
+                ),
                 max_consecutive_wins=performance["trade_analytics"]["max_consecutive_wins"],
                 max_consecutive_losses=performance["trade_analytics"]["max_consecutive_losses"],
             ),
+            behavior_diagnostics=ResearchBehaviorDiagnosticsResponse(
+                entry_hour_distribution=list(
+                    performance["behavior_diagnostics"]["entry_hour_distribution"]
+                ),
+                exit_hour_distribution=list(
+                    performance["behavior_diagnostics"]["exit_hour_distribution"]
+                ),
+                winning_trade_count=performance["behavior_diagnostics"]["winning_trade_count"],
+                losing_trade_count=performance["behavior_diagnostics"]["losing_trade_count"],
+                zero_pnl_trade_count=performance["behavior_diagnostics"]["zero_pnl_trade_count"],
+                winning_pnl=performance["behavior_diagnostics"]["winning_pnl"],
+                losing_pnl=performance["behavior_diagnostics"]["losing_pnl"],
+                average_winning_trade=performance["behavior_diagnostics"]["average_winning_trade"],
+                average_losing_trade=performance["behavior_diagnostics"]["average_losing_trade"],
+                loss_by_entry_hour=list(
+                    performance["behavior_diagnostics"]["loss_by_entry_hour"]
+                ),
+            ),
+            behavior_findings=[
+                ResearchBehaviorFindingResponse(
+                    category=finding["category"],
+                    statement=finding["statement"],
+                    evidence=finding["evidence"],
+                )
+                for finding in performance["behavior_findings"]
+            ],
         ),
         intelligence=(
             ResearchIntelligenceResponse(
@@ -325,6 +351,42 @@ def _to_response(result) -> ResearchRunResponse:
                 max_consecutive_wins=(result.performance.trade_analytics.max_consecutive_wins),
                 max_consecutive_losses=(result.performance.trade_analytics.max_consecutive_losses),
             ),
+            behavior_diagnostics=ResearchBehaviorDiagnosticsResponse(
+                entry_hour_distribution=list(
+                    result.performance.behavior_diagnostics.entry_hour_distribution
+                ),
+                exit_hour_distribution=list(
+                    result.performance.behavior_diagnostics.exit_hour_distribution
+                ),
+                winning_trade_count=(
+                    result.performance.behavior_diagnostics.winning_trade_count
+                ),
+                losing_trade_count=(
+                    result.performance.behavior_diagnostics.losing_trade_count
+                ),
+                zero_pnl_trade_count=(
+                    result.performance.behavior_diagnostics.zero_pnl_trade_count
+                ),
+                winning_pnl=result.performance.behavior_diagnostics.winning_pnl,
+                losing_pnl=result.performance.behavior_diagnostics.losing_pnl,
+                average_winning_trade=(
+                    result.performance.behavior_diagnostics.average_winning_trade
+                ),
+                average_losing_trade=(
+                    result.performance.behavior_diagnostics.average_losing_trade
+                ),
+                loss_by_entry_hour=list(
+                    result.performance.behavior_diagnostics.loss_by_entry_hour
+                ),
+            ),
+            behavior_findings=[
+                ResearchBehaviorFindingResponse(
+                    category=finding.category,
+                    statement=finding.statement,
+                    evidence=finding.evidence,
+                )
+                for finding in result.performance.behavior_findings
+            ],
         ),
         intelligence=(
             ResearchIntelligenceResponse(

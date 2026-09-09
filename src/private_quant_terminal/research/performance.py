@@ -12,6 +12,14 @@ from private_quant_terminal.research.execution import (
     ResearchExecutionEventType,
     ResearchExecutionResult,
 )
+from private_quant_terminal.research.behavior_diagnostics import (
+    ResearchBehaviorDiagnostics,
+    ResearchBehaviorDiagnosticsCalculator,
+)
+from private_quant_terminal.research.behavior_findings import (
+    ResearchBehaviorFinding,
+    ResearchBehaviorFindingsCalculator,
+)
 from private_quant_terminal.research.trade_analytics import (
     ResearchTradeAnalytics,
     ResearchTradeAnalyticsCalculator,
@@ -38,6 +46,8 @@ class ResearchPerformanceReport:
     risk_adjusted: object
     evidence_summary: ResearchEvidenceSummary
     trade_analytics: ResearchTradeAnalytics
+    behavior_diagnostics: ResearchBehaviorDiagnostics
+    behavior_findings: tuple[ResearchBehaviorFinding, ...]
 
 
 class ResearchPerformanceAnalyzer:
@@ -90,6 +100,12 @@ class ResearchPerformanceAnalyzer:
         trade_analytics = ResearchTradeAnalyticsCalculator().calculate(
             execution.trades,
         )
+        behavior_diagnostics = ResearchBehaviorDiagnosticsCalculator().calculate(
+            execution.trades,
+        )
+        behavior_findings = ResearchBehaviorFindingsCalculator().calculate(
+            behavior_diagnostics,
+        )
 
         return ResearchPerformanceReport(
             trading_performance=trading_performance,
@@ -99,6 +115,8 @@ class ResearchPerformanceAnalyzer:
             risk_adjusted=risk_adjusted,
             evidence_summary=evidence_summary,
             trade_analytics=trade_analytics,
+            behavior_diagnostics=behavior_diagnostics,
+            behavior_findings=behavior_findings,
         )
 
     @staticmethod

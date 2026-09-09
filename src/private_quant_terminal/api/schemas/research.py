@@ -90,6 +90,25 @@ class ResearchTradeAnalyticsResponse(BaseModel):
     max_consecutive_losses: int
 
 
+class ResearchBehaviorFindingResponse(BaseModel):
+    category: str
+    statement: str
+    evidence: str
+
+
+class ResearchBehaviorDiagnosticsResponse(BaseModel):
+    entry_hour_distribution: list[tuple[int, int]]
+    exit_hour_distribution: list[tuple[int, int]]
+    winning_trade_count: int
+    losing_trade_count: int
+    zero_pnl_trade_count: int
+    winning_pnl: float
+    losing_pnl: float
+    average_winning_trade: float
+    average_losing_trade: float
+    loss_by_entry_hour: list[tuple[int, float]]
+
+
 class ResearchPerformanceResponse(BaseModel):
     realized_pnl: float
     unrealized_pnl: float
@@ -108,6 +127,8 @@ class ResearchPerformanceResponse(BaseModel):
     downside_deviation: float
     calmar_ratio: float
     trade_analytics: ResearchTradeAnalyticsResponse
+    behavior_diagnostics: ResearchBehaviorDiagnosticsResponse
+    behavior_findings: list[ResearchBehaviorFindingResponse]
 
 
 class ResearchEquityPointResponse(BaseModel):
