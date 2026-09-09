@@ -780,3 +780,147 @@ def test_option_candle_provider_returns_latest_candle_at_or_before_as_of() -> No
     assert result is not None
     assert result.timestamp == contract_time
     assert result.close == 10.0
+
+
+def test_current_week_ignores_expired_expiry() -> None:
+    timestamp = datetime(2026, 9, 9, 10, 0, tzinfo=UTC)
+
+    chain = make_chain(
+        quotes=(
+            make_quote(
+                strike=55000.0,
+                option_type=OptionType.CALL,
+                expiry="2026-09-03",
+                timestamp=timestamp,
+            ),
+            make_quote(
+                strike=55000.0,
+                option_type=OptionType.CALL,
+                expiry="2026-09-10",
+                timestamp=timestamp,
+            ),
+            make_quote(
+                strike=55000.0,
+                option_type=OptionType.CALL,
+                expiry="2026-09-17",
+                timestamp=timestamp,
+            ),
+        )
+    )
+
+    result = HistoricalOptionContractResolver().resolve(
+        selector(expiry_selection=ExpirySelection.CURRENT_WEEK),
+        chain,
+        as_of=timestamp,
+        signal_underlying_price=chain.underlying_price,
+    )
+
+    assert result.instrument.expiry == "2026-09-10"
+
+
+def test_next_week_ignores_expired_expiries() -> None:
+    timestamp = datetime(2026, 9, 9, 10, 0, tzinfo=UTC)
+
+    chain = make_chain(
+        quotes=(
+            make_quote(
+                strike=55000.0,
+                option_type=OptionType.CALL,
+                expiry="2026-09-03",
+                timestamp=timestamp,
+            ),
+            make_quote(
+                strike=55000.0,
+                option_type=OptionType.CALL,
+                expiry="2026-09-10",
+                timestamp=timestamp,
+            ),
+            make_quote(
+                strike=55000.0,
+                option_type=OptionType.CALL,
+                expiry="2026-09-24",
+                timestamp=timestamp,
+            ),
+        )
+    )
+
+    result = HistoricalOptionContractResolver().resolve(
+        selector(expiry_selection=ExpirySelection.NEXT_WEEK),
+        chain,
+        as_of=timestamp,
+        signal_underlying_price=chain.underlying_price,
+    )
+
+    assert result.instrument.expiry == "2026-09-24"
+
+
+def test_current_month_ignores_expired_expiries() -> None:
+    timestamp = datetime(2026, 9, 9, 10, 0, tzinfo=UTC)
+
+    chain = make_chain(
+        quotes=(
+            make_quote(
+                strike=55000.0,
+                option_type=OptionType.CALL,
+                expiry="2026-09-03",
+                timestamp=timestamp,
+            ),
+            make_quote(
+                strike=55000.0,
+                option_type=OptionType.CALL,
+                expiry="2026-09-24",
+                timestamp=timestamp,
+            ),
+            make_quote(
+                strike=55000.0,
+                option_type=OptionType.CALL,
+                expiry="2026-10-01",
+                timestamp=timestamp,
+            ),
+        )
+    )
+
+    result = HistoricalOptionContractResolver().resolve(
+        selector(expiry_selection=ExpirySelection.CURRENT_MONTH),
+        chain,
+        as_of=timestamp,
+        signal_underlying_price=chain.underlying_price,
+    )
+
+    assert result.instrument.expiry == "2026-09-24"
+
+
+def test_next_month_skips_month_without_future_expiry() -> None:
+    timestamp = datetime(2026, 9, 9, 10, 0, tzinfo=UTC)
+
+    chain = make_chain(
+        quotes=(
+            make_quote(
+                strike=55000.0,
+                option_type=OptionType.CALL,
+                expiry="2026-09-03",
+                timestamp=timestamp,
+            ),
+            make_quote(
+                strike=55000.0,
+                option_type=OptionType.CALL,
+                expiry="2026-09-24",
+                timestamp=timestamp,
+            ),
+            make_quote(
+                strike=55000.0,
+                option_type=OptionType.CALL,
+                expiry="2026-11-05",
+                timestamp=timestamp,
+            ),
+        )
+    )
+
+    result = HistoricalOptionContractResolver().resolve(
+        selector(expiry_selection=ExpirySelection.NEXT_MONTH),
+        chain,
+        as_of=timestamp,
+        signal_underlying_price=chain.underlying_price,
+    )
+
+    assert result.instrument.expiry == "2026-11-05"
