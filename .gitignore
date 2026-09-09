@@ -227,3 +227,13 @@ data/
 *.db
 *.db-wal
 *.db-shm
+
+# Allow tracked application source/tests under data directories
+!src/private_quant_terminal/data/
+!src/private_quant_terminal/data/**
+!tests/data/
+!tests/data/**
+
+# Never track Python bytecode/cache directories exposed by source-data exceptions
+**/__pycache__/
+*.pyc

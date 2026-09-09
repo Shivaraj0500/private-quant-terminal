@@ -22,7 +22,13 @@ class StrikeSelection(str, Enum):
 
 
 class ExpirySelection(str, Enum):
-    """How a strategy selects an option expiry."""
+    """How a strategy selects an option expiry.
+
+    Historical resolution is performed against the option chain available
+    at the strategy timestamp. Generic selections are ordinal selections
+    over non-expired available expiries; exchange-specific expiry-calendar
+    semantics belong to the historical derivative data layer.
+    """
 
     CURRENT_WEEK = "CURRENT_WEEK"
     NEXT_WEEK = "NEXT_WEEK"
