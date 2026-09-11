@@ -2,6 +2,9 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from itertools import pairwise
 
+from private_quant_terminal.data.economics import (
+    HistoricalInstrumentEconomicsProvider,
+)
 from private_quant_terminal.portfolio.drawdown import DrawdownCalculator
 from private_quant_terminal.portfolio.performance_calculator import (
     PortfolioPerformanceCalculator,
@@ -89,6 +92,7 @@ class ResearchPerformanceAnalyzer:
         execution: ResearchExecutionResult,
         simulation_steps=(),
         option_fills=(),
+        economics_provider: HistoricalInstrumentEconomicsProvider | None = None,
     ) -> ResearchPerformanceReport:
         """Analyze the completed research execution."""
 
@@ -139,7 +143,9 @@ class ResearchPerformanceAnalyzer:
         behavior_findings = ResearchBehaviorFindingsCalculator().calculate(
             behavior_diagnostics,
         )
-        risk_diagnostics = ResearchRiskDiagnosticsCalculator().calculate(
+        risk_diagnostics = ResearchRiskDiagnosticsCalculator(
+            economics_provider=economics_provider,
+        ).calculate(
             tuple(simulation_steps),
         )
         risk_findings = ResearchRiskFindingsCalculator().calculate(

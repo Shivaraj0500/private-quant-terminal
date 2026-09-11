@@ -2,8 +2,13 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
+from private_quant_terminal.data.economics import (
+    HistoricalInstrumentEconomics,
+    InMemoryHistoricalInstrumentEconomicsProvider,
+)
 from private_quant_terminal.data.identity import DatasetIdentity, candle_dataset_hash
 from private_quant_terminal.models import Candle
+from private_quant_terminal.models.instrument import Instrument
 from private_quant_terminal.persistence import Database
 from private_quant_terminal.research import (
     ResearchAnalysisResult,
@@ -12,6 +17,22 @@ from private_quant_terminal.research import (
     ResearchRunStatus,
 )
 from private_quant_terminal.research.repository import ResearchRunRepository
+from private_quant_terminal.strategy import (
+    ExecutionAssumptions,
+    PositionSizing,
+    PositionSizingMethod,
+    StopLoss,
+    StopLossType,
+    StrategyIR,
+    StrategyStatus,
+    StrategyTimeframe,
+    TakeProfit,
+    TakeProfitType,
+)
+from private_quant_terminal.strategy.actions import (
+    EnterAction,
+    ExitAction,
+)
 from private_quant_terminal.strategy.conditions import (
     ComparisonCondition,
     ComparisonOperator,
@@ -21,10 +42,6 @@ from private_quant_terminal.strategy.expressions import (
     PriceExpression,
     PriceField,
 )
-from private_quant_terminal.strategy.actions import (
-    EnterAction,
-    ExitAction,
-)
 from private_quant_terminal.strategy.positions import (
     LegAction,
     LegInstrumentType,
@@ -32,18 +49,6 @@ from private_quant_terminal.strategy.positions import (
     StrategyLeg,
 )
 from private_quant_terminal.strategy.rules import StrategyRule
-from private_quant_terminal.strategy import (
-    ExecutionAssumptions,
-    PositionSizingMethod,
-    PositionSizing,
-    StopLoss,
-    StopLossType,
-    StrategyIR,
-    StrategyStatus,
-    StrategyTimeframe,
-    TakeProfit,
-    TakeProfitType,
-)
 
 
 def make_candles() -> tuple[Candle, ...]:
@@ -100,9 +105,7 @@ def make_strategy() -> StrategyIR:
                     operator=ComparisonOperator.GREATER_THAN_OR_EQUAL,
                     right=ConstantExpression(100.0),
                 ),
-                actions=(
-                    EnterAction(position=group),
-                ),
+                actions=(EnterAction(position=group),),
             ),
             StrategyRule(
                 rule_id="exit",
@@ -112,9 +115,7 @@ def make_strategy() -> StrategyIR:
                     operator=ComparisonOperator.GREATER_THAN_OR_EQUAL,
                     right=ConstantExpression(105.0),
                 ),
-                actions=(
-                    ExitAction(group_id="group-1"),
-                ),
+                actions=(ExitAction(group_id="group-1"),),
             ),
         ),
         position_sizing=PositionSizing(
@@ -140,9 +141,7 @@ def make_dataset(candles: tuple[Candle, ...]) -> DatasetIdentity:
 
 def make_service(tmp_path) -> ResearchRunService:
     return ResearchRunService(
-        repository=ResearchRunRepository(
-            Database(tmp_path / "research-v2.db")
-        )
+        repository=ResearchRunRepository(Database(tmp_path / "research-v2.db"))
     )
 
 
@@ -193,6 +192,45 @@ def test_execute_run_v2_returns_complete_analysis_result(tmp_path) -> None:
     assert result.performance.trading_performance.realized_pnl == 10.0
 
 
+def test_execute_run_v2_passes_historical_economics_to_performance(
+    tmp_path,
+) -> None:
+    candles = make_candles()
+    strategy = make_strategy()
+    service = make_service(tmp_path)
+    run = make_run(service, strategy, candles)
+
+    instrument = strategy.position_groups[0].legs[0]
+    research_instrument = Instrument(
+        symbol=instrument.symbol,
+        exchange="RESEARCH",
+        instrument_type=instrument.instrument_type,
+    )
+
+    economics_provider = InMemoryHistoricalInstrumentEconomicsProvider(
+        (
+            HistoricalInstrumentEconomics(
+                instrument=research_instrument,
+                timestamp=candles[0].timestamp,
+                contract_multiplier=50.0,
+            ),
+        )
+    )
+
+    result = service.execute_run_v2(
+        run=run,
+        strategy=strategy,
+        candles=candles,
+        initial_equity=1000.0,
+        economics_provider=economics_provider,
+    )
+
+    assert result.performance.risk_diagnostics.maximum_gross_exposure == 5000.0
+    assert result.performance.risk_diagnostics.maximum_gross_leverage == 5.0
+    assert result.performance.risk_diagnostics.maximum_net_leverage == 5.0
+    assert result.performance.risk_diagnostics.leverage_data_available is True
+
+
 def test_execute_run_v2_persists_result(tmp_path) -> None:
     candles = make_candles()
     strategy = make_strategy()
@@ -206,9 +244,7 @@ def test_execute_run_v2_persists_result(tmp_path) -> None:
         initial_equity=1000.0,
     )
 
-    persisted_execution, persisted_integrity, persisted_performance, persisted_intelligence = (
-        service._repository.get_result(run.run_id)
-    )
+    persisted_execution, persisted_integrity, _, _ = service._repository.get_result(run.run_id)
 
     assert persisted_execution.final_equity == result.execution.final_equity
     assert persisted_execution.trades == result.execution.trades

@@ -1,4 +1,3 @@
-
 from fastapi.testclient import TestClient
 
 from private_quant_terminal.api.app import create_app
@@ -82,8 +81,7 @@ def test_get_research_run_returns_complete_persisted_evidence() -> None:
 
     assert data["intelligence"]["evidence"]
     intelligence_references = {
-        (item["category"], item["code"])
-        for item in data["intelligence"]["evidence"]
+        (item["category"], item["code"]) for item in data["intelligence"]["evidence"]
     }
 
     assert ("INTEGRITY", "INTEGRITY_OK") not in intelligence_references
@@ -107,6 +105,7 @@ def test_get_research_run_returns_complete_persisted_evidence() -> None:
 
     assert "risk_diagnostics" in data["performance"]
     assert data["performance"]["risk_diagnostics"]["observation_count"] == 0
+    assert data["performance"]["risk_diagnostics"]["leverage_data_available"] is False
     assert "risk_findings" in data["performance"]
     assert data["performance"]["risk_findings"]
     assert data["performance"]["risk_findings"][0]["category"] == "data_availability"

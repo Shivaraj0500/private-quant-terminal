@@ -260,6 +260,14 @@ def _persisted_result_response(
                 ],
                 worst_observation_loss=performance["risk_diagnostics"]["worst_observation_loss"],
                 worst_daily_loss=performance["risk_diagnostics"]["worst_daily_loss"],
+                maximum_gross_leverage=performance["risk_diagnostics"]["maximum_gross_leverage"],
+                maximum_net_leverage=performance["risk_diagnostics"]["maximum_net_leverage"],
+                maximum_required_margin=performance["risk_diagnostics"]["maximum_required_margin"],
+                maximum_margin_utilization=performance["risk_diagnostics"][
+                    "maximum_margin_utilization"
+                ],
+                margin_data_available=performance["risk_diagnostics"]["margin_data_available"],
+                leverage_data_available=performance["risk_diagnostics"]["leverage_data_available"],
             ),
             risk_findings=[
                 ResearchRiskFindingResponse(
@@ -477,6 +485,12 @@ def _to_response(result) -> ResearchRunResponse:
                 maximum_net_exposure_ratio=result.performance.risk_diagnostics.maximum_net_exposure_ratio,
                 worst_observation_loss=result.performance.risk_diagnostics.worst_observation_loss,
                 worst_daily_loss=result.performance.risk_diagnostics.worst_daily_loss,
+                maximum_gross_leverage=result.performance.risk_diagnostics.maximum_gross_leverage,
+                maximum_net_leverage=result.performance.risk_diagnostics.maximum_net_leverage,
+                maximum_required_margin=result.performance.risk_diagnostics.maximum_required_margin,
+                maximum_margin_utilization=result.performance.risk_diagnostics.maximum_margin_utilization,
+                margin_data_available=result.performance.risk_diagnostics.margin_data_available,
+                leverage_data_available=result.performance.risk_diagnostics.leverage_data_available,
             ),
             risk_findings=[
                 ResearchRiskFindingResponse(

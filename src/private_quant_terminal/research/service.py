@@ -84,18 +84,11 @@ class ResearchRunService:
     ) -> ResearchRunCreationResult:
         """Create and persist a reproducible research run."""
 
-        if (
-            strategy_version.specification.timeframe.value
-            != dataset.timeframe
-        ):
-            raise ValueError(
-                "Strategy timeframe does not match dataset timeframe."
-            )
+        if strategy_version.specification.timeframe.value != dataset.timeframe:
+            raise ValueError("Strategy timeframe does not match dataset timeframe.")
 
         if dataset.symbol not in strategy_version.specification.instruments:
-            raise ValueError(
-                "Dataset symbol is not supported by the strategy."
-            )
+            raise ValueError("Dataset symbol is not supported by the strategy.")
 
         canonical_json = canonical_parameters_json(parameters)
 
@@ -129,39 +122,25 @@ class ResearchRunService:
         """Execute and analyze a research run deterministically."""
 
         if run.strategy_id != strategy_version.strategy_id:
-            raise ValueError(
-                "strategy identity does not match research run"
-            )
+            raise ValueError("strategy identity does not match research run")
 
         if run.strategy_version != strategy_version.version:
-            raise ValueError(
-                "strategy version does not match research run"
-            )
+            raise ValueError("strategy version does not match research run")
 
-        if run.strategy_hash != strategy_hash(
-            strategy_version.specification
-        ):
-            raise ValueError(
-                "strategy hash does not match research run"
-            )
+        if run.strategy_hash != strategy_hash(strategy_version.specification):
+            raise ValueError("strategy hash does not match research run")
 
         if not candles:
-            raise ValueError(
-                "research execution requires at least one candle"
-            )
+            raise ValueError("research execution requires at least one candle")
 
         actual_dataset_hash = candle_dataset_hash(list(candles))
 
         if run.dataset_hash != actual_dataset_hash:
-            raise ValueError(
-                "dataset hash does not match research run"
-            )
+            raise ValueError("dataset hash does not match research run")
 
         persisted_run = self._repository.get(run.run_id)
 
-        should_update_lifecycle = (
-            persisted_run.status is ResearchRunStatus.CREATED
-        )
+        should_update_lifecycle = persisted_run.status is ResearchRunStatus.CREATED
 
         if should_update_lifecycle:
             self._repository.update_status(
@@ -170,8 +149,7 @@ class ResearchRunService:
             )
         elif persisted_run.status is not ResearchRunStatus.COMPLETED:
             raise ValueError(
-                "Research run is not executable from status: "
-                f"{persisted_run.status.value}"
+                f"Research run is not executable from status: {persisted_run.status.value}"
             )
 
         try:
@@ -185,18 +163,12 @@ class ResearchRunService:
                 )
             )
 
-            integrity = ResearchIntegrityAnalyzer().analyze(
-                execution
-            )
+            integrity = ResearchIntegrityAnalyzer().analyze(execution)
 
             if integrity.status is ResearchIntegrityStatus.FAIL:
-                raise ValueError(
-                    "research execution failed integrity validation"
-                )
+                raise ValueError("research execution failed integrity validation")
 
-            performance = ResearchPerformanceAnalyzer().analyze(
-                execution
-            )
+            performance = ResearchPerformanceAnalyzer().analyze(execution)
             intelligence = ResearchIntelligenceAnalyzer().analyze(
                 performance=performance,
                 integrity=integrity,
@@ -232,7 +204,6 @@ class ResearchRunService:
             intelligence=intelligence,
         )
 
-
     def create_run_v2(
         self,
         strategy: StrategyIR,
@@ -247,21 +218,14 @@ class ResearchRunService:
         if not validation.valid:
             raise ValueError(
                 "StrategyIR V2 failed validation: "
-                + "; ".join(
-                    f"{issue.field}: {issue.message}"
-                    for issue in validation.issues
-                )
+                + "; ".join(f"{issue.field}: {issue.message}" for issue in validation.issues)
             )
 
         if strategy.timeframe.value != dataset.timeframe:
-            raise ValueError(
-                "Strategy timeframe does not match dataset timeframe."
-            )
+            raise ValueError("Strategy timeframe does not match dataset timeframe.")
 
         if dataset.symbol.upper() not in strategy.instruments:
-            raise ValueError(
-                "Dataset symbol is not supported by the strategy."
-            )
+            raise ValueError("Dataset symbol is not supported by the strategy.")
 
         canonical_json = canonical_parameters_json(parameters)
 
@@ -291,6 +255,7 @@ class ResearchRunService:
         strategy: StrategyIR,
         candles: tuple[Candle, ...],
         initial_equity: float,
+        economics_provider=None,
     ) -> ResearchAnalysisResult:
         """Execute and analyze a canonical StrategyIR V2 research run."""
 
@@ -299,54 +264,35 @@ class ResearchRunService:
         if not validation.valid:
             raise ValueError(
                 "StrategyIR V2 failed validation: "
-                + "; ".join(
-                    f"{issue.field}: {issue.message}"
-                    for issue in validation.issues
-                )
+                + "; ".join(f"{issue.field}: {issue.message}" for issue in validation.issues)
             )
 
         if run.strategy_id != strategy.strategy_id:
-            raise ValueError(
-                "strategy identity does not match research run"
-            )
+            raise ValueError("strategy identity does not match research run")
 
         if run.strategy_version != strategy.version:
-            raise ValueError(
-                "strategy version does not match research run"
-            )
+            raise ValueError("strategy version does not match research run")
 
         if run.strategy_hash != strategy_hash(strategy):
-            raise ValueError(
-                "strategy hash does not match research run"
-            )
+            raise ValueError("strategy hash does not match research run")
 
         if run.timeframe != strategy.timeframe.value:
-            raise ValueError(
-                "strategy timeframe does not match research run"
-            )
+            raise ValueError("strategy timeframe does not match research run")
 
         if run.symbol.upper() not in strategy.instruments:
-            raise ValueError(
-                "research run symbol is not supported by the strategy"
-            )
+            raise ValueError("research run symbol is not supported by the strategy")
 
         if not candles:
-            raise ValueError(
-                "research execution requires at least one candle"
-            )
+            raise ValueError("research execution requires at least one candle")
 
         actual_dataset_hash = candle_dataset_hash(list(candles))
 
         if run.dataset_hash != actual_dataset_hash:
-            raise ValueError(
-                "dataset hash does not match research run"
-            )
+            raise ValueError("dataset hash does not match research run")
 
         persisted_run = self._repository.get(run.run_id)
 
-        should_update_lifecycle = (
-            persisted_run.status is ResearchRunStatus.CREATED
-        )
+        should_update_lifecycle = persisted_run.status is ResearchRunStatus.CREATED
 
         if should_update_lifecycle:
             self._repository.update_status(
@@ -355,8 +301,7 @@ class ResearchRunService:
             )
         elif persisted_run.status is not ResearchRunStatus.COMPLETED:
             raise ValueError(
-                "Research run is not executable from status: "
-                f"{persisted_run.status.value}"
+                f"Research run is not executable from status: {persisted_run.status.value}"
             )
 
         try:
@@ -368,26 +313,22 @@ class ResearchRunService:
                     candles=candles,
                     initial_equity=initial_equity,
                     run_id=run.run_id,
+                    economics_provider=economics_provider,
                 )
             )
 
-            execution = ResearchV2EvidenceAdapter().adapt(
-                v2_execution
-            )
+            execution = ResearchV2EvidenceAdapter().adapt(v2_execution)
 
-            integrity = ResearchIntegrityAnalyzer().analyze(
-                execution
-            )
+            integrity = ResearchIntegrityAnalyzer().analyze(execution)
 
             if integrity.status is ResearchIntegrityStatus.FAIL:
-                raise ValueError(
-                    "research execution failed integrity validation"
-                )
+                raise ValueError("research execution failed integrity validation")
 
             performance = ResearchPerformanceAnalyzer().analyze(
                 execution,
                 simulation_steps=v2_execution.simulation_steps,
                 option_fills=v2_execution.fills,
+                economics_provider=economics_provider,
             )
             intelligence = ResearchIntelligenceAnalyzer().analyze(
                 performance=performance,

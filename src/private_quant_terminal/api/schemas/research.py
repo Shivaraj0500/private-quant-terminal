@@ -156,6 +156,12 @@ class ResearchRiskDiagnosticsResponse(BaseModel):
     maximum_net_exposure_ratio: float
     worst_observation_loss: float
     worst_daily_loss: float
+    maximum_gross_leverage: float
+    maximum_net_leverage: float
+    maximum_required_margin: float
+    maximum_margin_utilization: float
+    margin_data_available: bool
+    leverage_data_available: bool
 
 
 class ResearchRiskFindingResponse(BaseModel):

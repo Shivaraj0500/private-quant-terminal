@@ -1,14 +1,25 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Sequence
 
+from private_quant_terminal.data.derivatives.candle_provider import HistoricalOptionCandleProvider
+from private_quant_terminal.data.derivatives.models import HistoricalOptionContract
+from private_quant_terminal.data.derivatives.provider import HistoricalOptionChainProvider
+from private_quant_terminal.data.derivatives.resolver import HistoricalOptionContractResolver
+from private_quant_terminal.data.economics import HistoricalInstrumentEconomicsProvider
 from private_quant_terminal.models import Candle
 from private_quant_terminal.models.instrument import Instrument, InstrumentType
-from private_quant_terminal.data.derivatives.models import HistoricalOptionContract
-from private_quant_terminal.data.derivatives.resolver import HistoricalOptionContractResolver
+from private_quant_terminal.research.position_book import ResearchPositionBook
+from private_quant_terminal.research.simulation import (
+    ResearchActionEvent,
+    ResearchFill,
+    ResearchSimulationAdapter,
+    ResearchSimulationStep,
+)
 from private_quant_terminal.strategy.actions import EnterAction, ExitAction
 from private_quant_terminal.strategy.compiler import CompiledStrategyPlan
+from private_quant_terminal.strategy.positions import PositionGroup
 from private_quant_terminal.strategy.rule_evaluator import (
     RuleEvaluationResult,
     StrategyRuleEvaluator,
@@ -17,16 +28,6 @@ from private_quant_terminal.strategy.variables import (
     PositionContext,
     SessionContext,
     StrategyRuntimeContext,
-)
-from private_quant_terminal.strategy.positions import PositionGroup
-from private_quant_terminal.research.position_book import ResearchPositionBook
-from private_quant_terminal.data.derivatives.candle_provider import HistoricalOptionCandleProvider
-from private_quant_terminal.data.derivatives.provider import HistoricalOptionChainProvider
-from private_quant_terminal.research.simulation import (
-    ResearchActionEvent,
-    ResearchFill,
-    ResearchSimulationAdapter,
-    ResearchSimulationStep,
 )
 
 
@@ -38,12 +39,11 @@ class ResearchV2ExecutionRequest:
     run_id: str | None = None
     option_chain_provider: HistoricalOptionChainProvider | None = None
     option_candle_provider: HistoricalOptionCandleProvider | None = None
+    economics_provider: HistoricalInstrumentEconomicsProvider | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.plan, CompiledStrategyPlan):
-            raise TypeError(
-                "ResearchV2ExecutionRequest.plan must be a CompiledStrategyPlan."
-            )
+            raise TypeError("ResearchV2ExecutionRequest.plan must be a CompiledStrategyPlan.")
         if not self.candles:
             raise ValueError("ResearchV2ExecutionRequest requires candles.")
         if self.initial_equity < 0:
@@ -89,9 +89,7 @@ class ResearchV2OptionFillAdapter:
         elif leg.action.name == "SELL":
             side = ResearchFillSide.SELL
         else:
-            raise ValueError(
-                f"Unsupported option leg action: {leg.action!r}."
-            )
+            raise ValueError(f"Unsupported option leg action: {leg.action!r}.")
 
         return ResearchFill(
             timestamp=timestamp,
@@ -144,10 +142,7 @@ class ResearchV2Executor:
         request: ResearchV2ExecutionRequest,
     ) -> ResearchV2ExecutionResult:
         if not isinstance(request, ResearchV2ExecutionRequest):
-            raise TypeError(
-                "ResearchV2Executor.execute() requires a "
-                "ResearchV2ExecutionRequest."
-            )
+            raise TypeError("ResearchV2Executor.execute() requires a ResearchV2ExecutionRequest.")
 
         plan = request.plan
         candles = request.candles
@@ -209,18 +204,14 @@ class ResearchV2Executor:
                         if leg.instrument_type.name == "OPTION":
                             if request.option_chain_provider is None:
                                 raise ValueError(
-                                    "Option execution requires an "
-                                    "HistoricalOptionChainProvider."
+                                    "Option execution requires an HistoricalOptionChainProvider."
                                 )
                             if request.option_candle_provider is None:
                                 raise ValueError(
-                                    "Option execution requires an "
-                                    "HistoricalOptionCandleProvider."
+                                    "Option execution requires an HistoricalOptionCandleProvider."
                                 )
                             if leg.option is None:
-                                raise ValueError(
-                                    "Option leg must define an OptionSelector."
-                                )
+                                raise ValueError("Option leg must define an OptionSelector.")
 
                             chain = request.option_chain_provider.get_latest_chain(
                                 leg.option.underlying,
@@ -240,11 +231,9 @@ class ResearchV2Executor:
                                 signal_underlying_price=market.underlying_price,
                             )
 
-                            option_candle = (
-                                request.option_candle_provider.get_latest_candle(
-                                    contract,
-                                    candle.timestamp,
-                                )
+                            option_candle = request.option_candle_provider.get_latest_candle(
+                                contract,
+                                candle.timestamp,
                             )
                             if option_candle is None:
                                 raise ValueError(
@@ -254,9 +243,7 @@ class ResearchV2Executor:
                                 )
 
                             if not isinstance(action, EnterAction):
-                                raise TypeError(
-                                    "ENTER action must be an EnterAction."
-                                )
+                                raise TypeError("ENTER action must be an EnterAction.")
 
                             option_action = EnterAction(
                                 position=PositionGroup(
@@ -326,11 +313,7 @@ class ResearchV2Executor:
                             ),
                             instrument=instrument,
                             price=candle.close,
-                            quantity=(
-                                1.0
-                                if leg.quantity is None
-                                else float(leg.quantity)
-                            ),
+                            quantity=(1.0 if leg.quantity is None else float(leg.quantity)),
                         )
 
                         accounting = position_book.apply_fill(fill)
@@ -345,14 +328,10 @@ class ResearchV2Executor:
                     for existing_position in group_positions:
                         exit_price = candle.close
 
-                        if (
-                            existing_position.instrument.instrument_type
-                            == InstrumentType.OPTION
-                        ):
+                        if existing_position.instrument.instrument_type == InstrumentType.OPTION:
                             if request.option_candle_provider is None:
                                 raise ValueError(
-                                    "Option exit requires an "
-                                    "HistoricalOptionCandleProvider."
+                                    "Option exit requires an HistoricalOptionCandleProvider."
                                 )
 
                             exit_price = _latest_option_price(
@@ -390,14 +369,10 @@ class ResearchV2Executor:
             for open_position in open_positions:
                 market_price = candle.close
 
-                if (
-                    open_position.instrument.instrument_type
-                    == InstrumentType.OPTION
-                ):
+                if open_position.instrument.instrument_type == InstrumentType.OPTION:
                     if request.option_candle_provider is None:
                         raise ValueError(
-                            "Option mark-to-market requires an "
-                            "HistoricalOptionCandleProvider."
+                            "Option mark-to-market requires an HistoricalOptionCandleProvider."
                         )
 
                     market_price = _latest_option_price(
@@ -415,18 +390,11 @@ class ResearchV2Executor:
                     realized_pnl=realized_pnl,
                 )
             else:
-                net_quantity = sum(
-                    open_position.quantity
+                net_quantity = sum(open_position.quantity for open_position in open_positions)
+                weighted_entry = sum(
+                    abs(open_position.quantity) * open_position.average_price
                     for open_position in open_positions
-                )
-                weighted_entry = (
-                    sum(
-                        abs(open_position.quantity)
-                        * open_position.average_price
-                        for open_position in open_positions
-                    )
-                    / sum(abs(open_position.quantity) for open_position in open_positions)
-                )
+                ) / sum(abs(open_position.quantity) for open_position in open_positions)
                 position_context = PositionContext(
                     quantity=net_quantity,
                     entry_price=weighted_entry,
@@ -436,12 +404,7 @@ class ResearchV2Executor:
                     unrealized_pnl=unrealized_pnl,
                 )
 
-            equity = (
-                request.initial_equity
-                + realized_pnl
-                + unrealized_pnl
-                - transaction_cost
-            )
+            equity = request.initial_equity + realized_pnl + unrealized_pnl - transaction_cost
 
             step = ResearchSimulationStep(
                 timestamp=candle.timestamp,
@@ -457,8 +420,7 @@ class ResearchV2Executor:
                                 instrument=open_position.instrument,
                                 timestamp=candle.timestamp,
                             )
-                            if open_position.instrument.instrument_type
-                            == InstrumentType.OPTION
+                            if open_position.instrument.instrument_type == InstrumentType.OPTION
                             else candle.close
                         ),
                     )
@@ -473,11 +435,7 @@ class ResearchV2Executor:
             simulation_steps.append(step)
             equity_curve.append((candle.timestamp, equity))
 
-        final_unrealized = (
-            simulation_steps[-1].unrealized_pnl
-            if simulation_steps
-            else 0.0
-        )
+        final_unrealized = simulation_steps[-1].unrealized_pnl if simulation_steps else 0.0
 
         return ResearchV2ExecutionResult(
             run_id=request.run_id,

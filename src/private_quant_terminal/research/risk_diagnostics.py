@@ -3,6 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date
 
+from private_quant_terminal.data.economics import (
+    HistoricalInstrumentEconomicsProvider,
+)
 from private_quant_terminal.research.simulation import ResearchSimulationStep
 
 
@@ -19,10 +22,22 @@ class ResearchRiskDiagnostics:
     maximum_net_exposure_ratio: float
     worst_observation_loss: float
     worst_daily_loss: float
+    maximum_gross_leverage: float = 0.0
+    maximum_net_leverage: float = 0.0
+    maximum_required_margin: float = 0.0
+    maximum_margin_utilization: float = 0.0
+    margin_data_available: bool = False
+    leverage_data_available: bool = False
 
 
 class ResearchRiskDiagnosticsCalculator:
     """Calculate deterministic risk diagnostics from research observations."""
+
+    def __init__(
+        self,
+        economics_provider: HistoricalInstrumentEconomicsProvider | None = None,
+    ) -> None:
+        self._economics_provider = economics_provider
 
     def calculate(
         self,
@@ -50,8 +65,14 @@ class ResearchRiskDiagnosticsCalculator:
         concentrations: list[float] = []
         gross_ratios: list[float] = []
         net_ratios: list[float] = []
+        gross_leverages: list[float] = []
+        net_leverages: list[float] = []
+        required_margins: list[float] = []
+        margin_utilizations: list[float] = []
         observation_losses: list[float] = []
 
+        margin_data_available = True
+        leverage_data_available = self._economics_provider is not None
         previous_equity: float | None = None
         daily_equity: dict[date, float] = {}
 
@@ -59,19 +80,18 @@ class ResearchRiskDiagnosticsCalculator:
             long_exposure = 0.0
             short_exposure = 0.0
             position_exposures: list[float] = []
+            required_margin = 0.0
+            step_margin_available = True
 
             position_marks = dict(step.position_marks)
 
-            position_ids = {
-                position.instrument.identifier for position in step.positions
-            }
+            position_ids = {position.instrument.identifier for position in step.positions}
             mark_ids = set(position_marks)
 
             missing_marks = position_ids - mark_ids
             if missing_marks:
                 raise ValueError(
-                    "Missing historical marks for positions: "
-                    + ", ".join(sorted(missing_marks))
+                    "Missing historical marks for positions: " + ", ".join(sorted(missing_marks))
                 )
 
             unexpected_marks = mark_ids - position_ids
@@ -85,11 +105,26 @@ class ResearchRiskDiagnosticsCalculator:
                 market_price = position_marks[position.instrument.identifier]
 
                 if market_price < 0:
-                    raise ValueError(
-                        "Historical position mark cannot be negative."
+                    raise ValueError("Historical position mark cannot be negative.")
+
+                contract_multiplier = 1.0
+                economics = None
+
+                if self._economics_provider is not None:
+                    economics = self._economics_provider.get_latest_economics(
+                        position.instrument,
+                        step.timestamp,
                     )
 
-                exposure = position.quantity * market_price
+                    if economics is None:
+                        raise ValueError(
+                            "Missing historical economics for instrument: "
+                            f"{position.instrument.identifier}"
+                        )
+
+                    contract_multiplier = economics.contract_multiplier
+
+                exposure = position.quantity * market_price * contract_multiplier
                 absolute_exposure = abs(exposure)
                 position_exposures.append(absolute_exposure)
 
@@ -98,30 +133,34 @@ class ResearchRiskDiagnosticsCalculator:
                 elif exposure < 0:
                     short_exposure += absolute_exposure
 
+                if economics is not None:
+                    if economics.margin_requirement is None:
+                        step_margin_available = False
+                    else:
+                        required_margin += abs(position.quantity) * economics.margin_requirement
+
             gross_exposure = long_exposure + short_exposure
             net_exposure = long_exposure - short_exposure
 
-            concentration = (
-                max(position_exposures) / gross_exposure
-                if gross_exposure > 0
-                else 0.0
-            )
+            concentration = max(position_exposures) / gross_exposure if gross_exposure > 0 else 0.0
 
-            gross_ratio = (
-                gross_exposure / step.equity
-                if step.equity > 0
-                else 0.0
-            )
-            net_ratio = (
-                abs(net_exposure) / step.equity
-                if step.equity > 0
-                else 0.0
+            gross_ratio = gross_exposure / step.equity if step.equity > 0 else 0.0
+            net_ratio = abs(net_exposure) / step.equity if step.equity > 0 else 0.0
+
+            gross_leverage = gross_ratio
+            net_leverage = net_ratio
+
+            if self._economics_provider is None:
+                step_margin_available = False
+                gross_leverage = 0.0
+                net_leverage = 0.0
+
+            margin_utilization = (
+                required_margin / step.equity if step.equity > 0 and step_margin_available else 0.0
             )
 
             if previous_equity is not None:
-                observation_losses.append(
-                    min(0.0, step.equity - previous_equity)
-                )
+                observation_losses.append(min(0.0, step.equity - previous_equity))
 
             current_day = step.timestamp.date()
             daily_equity[current_day] = step.equity
@@ -133,7 +172,15 @@ class ResearchRiskDiagnosticsCalculator:
             concentrations.append(concentration)
             gross_ratios.append(gross_ratio)
             net_ratios.append(net_ratio)
+            gross_leverages.append(gross_leverage)
+            net_leverages.append(net_leverage)
+            required_margins.append(required_margin)
+            margin_utilizations.append(margin_utilization)
 
+            margin_data_available = margin_data_available and step_margin_available
+            leverage_data_available = leverage_data_available and (
+                self._economics_provider is not None
+            )
             previous_equity = step.equity
 
         daily_losses: list[float] = []
@@ -159,4 +206,10 @@ class ResearchRiskDiagnosticsCalculator:
             maximum_net_exposure_ratio=max(net_ratios),
             worst_observation_loss=min(observation_losses, default=0.0),
             worst_daily_loss=min(daily_losses, default=0.0),
+            maximum_gross_leverage=max(gross_leverages),
+            maximum_net_leverage=max(net_leverages),
+            maximum_required_margin=max(required_margins),
+            maximum_margin_utilization=max(margin_utilizations),
+            margin_data_available=margin_data_available,
+            leverage_data_available=leverage_data_available,
         )

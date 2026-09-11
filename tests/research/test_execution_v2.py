@@ -1,6 +1,8 @@
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
-from private_quant_terminal.models.candle import Candle
+from private_quant_terminal.data.derivatives.candle_provider import (
+    InMemoryHistoricalOptionCandleProvider,
+)
 from private_quant_terminal.data.derivatives.models import (
     HistoricalOptionCandle,
     HistoricalOptionChainSnapshot,
@@ -10,15 +12,10 @@ from private_quant_terminal.data.derivatives.models import (
 from private_quant_terminal.data.derivatives.provider import (
     InMemoryHistoricalOptionChainProvider,
 )
-from private_quant_terminal.data.derivatives.candle_provider import (
-    InMemoryHistoricalOptionCandleProvider,
-)
+from private_quant_terminal.models.candle import Candle
 from private_quant_terminal.models.instrument import Instrument, InstrumentType, OptionType
-from private_quant_terminal.strategy.options import (
-    ExpirySelection,
-    OptionSelector,
-    OptionType as StrategyOptionType,
-    StrikeSelection,
+from private_quant_terminal.research.evidence_v2 import (
+    ResearchV2EvidenceAdapter,
 )
 from private_quant_terminal.research.execution_v2 import (
     ResearchV2ExecutionRequest,
@@ -27,8 +24,20 @@ from private_quant_terminal.research.execution_v2 import (
 from private_quant_terminal.strategy.actions import EnterAction, ExitAction
 from private_quant_terminal.strategy.compiler import StrategyCompiler
 from private_quant_terminal.strategy.conditions import ComparisonCondition, ComparisonOperator
-from private_quant_terminal.strategy.expressions import ConstantExpression, PriceExpression, PriceField
+from private_quant_terminal.strategy.expressions import (
+    ConstantExpression,
+    PriceExpression,
+    PriceField,
+)
 from private_quant_terminal.strategy.ir import StrategyIR
+from private_quant_terminal.strategy.options import (
+    ExpirySelection,
+    OptionSelector,
+    StrikeSelection,
+)
+from private_quant_terminal.strategy.options import (
+    OptionType as StrategyOptionType,
+)
 from private_quant_terminal.strategy.positions import (
     LegAction,
     LegInstrumentType,
@@ -39,7 +48,7 @@ from private_quant_terminal.strategy.rules import StrategyRule
 
 
 def _candles():
-    start = datetime(2026, 1, 2, tzinfo=timezone.utc)
+    start = datetime(2026, 1, 2, tzinfo=UTC)
     return tuple(
         Candle(
             timestamp=start + timedelta(minutes=i),
@@ -123,7 +132,7 @@ def test_v2_executor_runs_compiled_strategy_end_to_end():
 
 
 def test_v2_executor_runs_multi_leg_position_group_end_to_end():
-    start = datetime(2026, 1, 2, tzinfo=timezone.utc)
+    start = datetime(2026, 1, 2, tzinfo=UTC)
 
     candles = tuple(
         Candle(
@@ -227,7 +236,7 @@ def test_v2_executor_runs_multi_leg_position_group_end_to_end():
 
 
 def test_v2_executor_runs_multi_leg_option_position_end_to_end():
-    start = datetime(2026, 1, 2, tzinfo=timezone.utc)
+    start = datetime(2026, 1, 2, tzinfo=UTC)
     entry_time = start
     exit_time = start + timedelta(minutes=1)
 
@@ -426,23 +435,14 @@ def test_v2_executor_runs_multi_leg_option_position_end_to_end():
     entry_fills = result.fills[:2]
     exit_fills = result.fills[2:]
 
-    assert {
-        fill.instrument.option_type
-        for fill in entry_fills
-    } == {
+    assert {fill.instrument.option_type for fill in entry_fills} == {
         OptionType.CALL,
         OptionType.PUT,
     }
 
-    assert {
-        fill.price
-        for fill in entry_fills
-    } == {10.0}
+    assert {fill.price for fill in entry_fills} == {10.0}
 
-    assert {
-        fill.price
-        for fill in exit_fills
-    } == {6.0, 7.0}
+    assert {fill.price for fill in exit_fills} == {6.0, 7.0}
 
     assert result.realized_pnl == 7.0
     assert result.transaction_cost == 0.0
@@ -451,8 +451,9 @@ def test_v2_executor_runs_multi_leg_option_position_end_to_end():
     assert len(result.simulation_steps[0].positions) == 2
     assert result.simulation_steps[-1].positions == ()
 
+
 def test_v2_executor_does_not_use_future_option_chain_snapshot() -> None:
-    signal_time = datetime(2026, 1, 2, 10, 0, tzinfo=timezone.utc)
+    signal_time = datetime(2026, 1, 2, 10, 0, tzinfo=UTC)
     chain_time = signal_time - timedelta(minutes=1)
     future_chain_time = signal_time + timedelta(minutes=1)
     exit_time = signal_time + timedelta(minutes=1)
@@ -636,3 +637,56 @@ def test_v2_executor_does_not_use_future_option_chain_snapshot() -> None:
     assert exit_fill.instrument.strike == 100.0
     assert exit_fill.price == 6.0
     assert result.realized_pnl == -4.0
+
+
+def test_v2_execution_exposes_historical_economics_for_risk_analysis():
+    from private_quant_terminal.data.economics import (
+        HistoricalInstrumentEconomics,
+        InMemoryHistoricalInstrumentEconomicsProvider,
+    )
+    from private_quant_terminal.research.performance import (
+        ResearchPerformanceAnalyzer,
+    )
+
+    strategy = _strategy()
+    plan = StrategyCompiler().compile(strategy)
+    candles = _candles()
+
+    instrument = Instrument(
+        symbol="TEST",
+        exchange="RESEARCH",
+        instrument_type=InstrumentType.EQUITY,
+    )
+
+    economics_provider = InMemoryHistoricalInstrumentEconomicsProvider(
+        (
+            HistoricalInstrumentEconomics(
+                instrument=instrument,
+                timestamp=candles[0].timestamp,
+                contract_multiplier=50.0,
+            ),
+        )
+    )
+
+    result = ResearchV2Executor(initial_equity=1000.0).execute(
+        ResearchV2ExecutionRequest(
+            plan=plan,
+            candles=candles,
+            initial_equity=1000.0,
+            run_id="run-v2-economics",
+            economics_provider=economics_provider,
+        )
+    )
+
+    execution = ResearchV2EvidenceAdapter().adapt(result)
+
+    performance = ResearchPerformanceAnalyzer().analyze(
+        execution,
+        simulation_steps=result.simulation_steps,
+        economics_provider=economics_provider,
+    )
+
+    assert performance.risk_diagnostics.maximum_gross_exposure == 5000.0
+    assert performance.risk_diagnostics.maximum_net_exposure == 5000.0
+    assert performance.risk_diagnostics.maximum_gross_leverage == 5.0
+    assert performance.risk_diagnostics.maximum_net_leverage == 5.0

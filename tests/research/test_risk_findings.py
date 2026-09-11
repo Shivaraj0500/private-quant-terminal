@@ -43,9 +43,7 @@ def test_generates_concentration_and_ratio_findings() -> None:
     assert "net_exposure_ratio" in categories
 
     concentration = next(
-        finding
-        for finding in findings
-        if finding.category == "position_concentration"
+        finding for finding in findings if finding.category == "position_concentration"
     )
 
     assert "66.67%" in concentration.statement
@@ -59,11 +57,7 @@ def test_generates_loss_findings() -> None:
     assert "observation_loss" in categories
     assert "daily_loss" in categories
 
-    daily_loss = next(
-        finding
-        for finding in findings
-        if finding.category == "daily_loss"
-    )
+    daily_loss = next(finding for finding in findings if finding.category == "daily_loss")
 
     assert "-900.00" in daily_loss.statement
 
@@ -88,3 +82,61 @@ def test_empty_observations_produce_data_availability_finding() -> None:
     assert len(findings) == 1
     assert findings[0].category == "data_availability"
     assert findings[0].evidence == "observation_count=0"
+
+
+def test_generates_leverage_findings() -> None:
+    values = _diagnostics().__dict__.copy()
+    values.update(
+        maximum_gross_leverage=1.50,
+        maximum_net_leverage=0.75,
+        leverage_data_available=True,
+    )
+    diagnostics = ResearchRiskDiagnostics(**values)
+
+    findings = ResearchRiskFindingsCalculator().calculate(diagnostics)
+
+    categories = {finding.category for finding in findings}
+
+    assert "gross_leverage" in categories
+    assert "net_leverage" in categories
+
+    gross = next(finding for finding in findings if finding.category == "gross_leverage")
+    assert "150.00%" in gross.statement
+
+
+def test_generates_margin_findings_when_data_is_available() -> None:
+    values = _diagnostics().__dict__.copy()
+    values.update(
+        maximum_required_margin=8000.0,
+        maximum_margin_utilization=0.40,
+        margin_data_available=True,
+    )
+    diagnostics = ResearchRiskDiagnostics(**values)
+
+    findings = ResearchRiskFindingsCalculator().calculate(diagnostics)
+
+    categories = {finding.category for finding in findings}
+
+    assert "required_margin" in categories
+    assert "margin_utilization" in categories
+    assert "margin_data_availability" in categories
+
+    margin = next(finding for finding in findings if finding.category == "required_margin")
+    assert "8000.00" in margin.statement
+
+    utilization = next(finding for finding in findings if finding.category == "margin_utilization")
+    assert "40.00%" in utilization.statement
+
+
+def test_generates_margin_unavailable_finding() -> None:
+    values = _diagnostics().__dict__.copy()
+    values["margin_data_available"] = False
+    diagnostics = ResearchRiskDiagnostics(**values)
+
+    findings = ResearchRiskFindingsCalculator().calculate(diagnostics)
+
+    availability = next(
+        finding for finding in findings if finding.category == "margin_data_availability"
+    )
+
+    assert "unavailable" in availability.statement.lower()
