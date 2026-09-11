@@ -12,6 +12,7 @@ from private_quant_terminal.api.schemas.research import (
     ResearchIntelligenceResponse,
     ResearchOptionDiagnosticsResponse,
     ResearchOptionTradeEvidenceResponse,
+    ResearchPerformancePeriodResponse,
     ResearchPerformanceResponse,
     ResearchRiskDiagnosticsResponse,
     ResearchRiskFindingResponse,
@@ -231,9 +232,7 @@ def _persisted_result_response(
                 losing_pnl=performance["behavior_diagnostics"]["losing_pnl"],
                 average_winning_trade=performance["behavior_diagnostics"]["average_winning_trade"],
                 average_losing_trade=performance["behavior_diagnostics"]["average_losing_trade"],
-                loss_by_entry_hour=list(
-                    performance["behavior_diagnostics"]["loss_by_entry_hour"]
-                ),
+                loss_by_entry_hour=list(performance["behavior_diagnostics"]["loss_by_entry_hour"]),
             ),
             behavior_findings=[
                 ResearchBehaviorFindingResponse(
@@ -250,9 +249,15 @@ def _persisted_result_response(
                 maximum_net_exposure=performance["risk_diagnostics"]["maximum_net_exposure"],
                 maximum_long_exposure=performance["risk_diagnostics"]["maximum_long_exposure"],
                 maximum_short_exposure=performance["risk_diagnostics"]["maximum_short_exposure"],
-                maximum_position_concentration=performance["risk_diagnostics"]["maximum_position_concentration"],
-                maximum_gross_exposure_ratio=performance["risk_diagnostics"]["maximum_gross_exposure_ratio"],
-                maximum_net_exposure_ratio=performance["risk_diagnostics"]["maximum_net_exposure_ratio"],
+                maximum_position_concentration=performance["risk_diagnostics"][
+                    "maximum_position_concentration"
+                ],
+                maximum_gross_exposure_ratio=performance["risk_diagnostics"][
+                    "maximum_gross_exposure_ratio"
+                ],
+                maximum_net_exposure_ratio=performance["risk_diagnostics"][
+                    "maximum_net_exposure_ratio"
+                ],
                 worst_observation_loss=performance["risk_diagnostics"]["worst_observation_loss"],
                 worst_daily_loss=performance["risk_diagnostics"]["worst_daily_loss"],
             ),
@@ -264,13 +269,34 @@ def _persisted_result_response(
                 )
                 for finding in performance["risk_findings"]
             ],
+            performance_period=ResearchPerformancePeriodResponse(
+                start_timestamp=performance["performance_period"]["start_timestamp"],
+                end_timestamp=performance["performance_period"]["end_timestamp"],
+                duration_seconds=(
+                    performance["performance_period"]["duration"]
+                    if performance["performance_period"]["duration"] is not None
+                    else None
+                ),
+                cagr=performance["performance_period"]["cagr"],
+                recovery_duration_seconds=(
+                    performance["performance_period"]["recovery_duration"]
+                    if performance["performance_period"]["recovery_duration"] is not None
+                    else None
+                ),
+                recovery_timestamp=performance["performance_period"]["recovery_timestamp"],
+                drawdown_recovered=performance["performance_period"]["drawdown_recovered"],
+            ),
             option_diagnostics=ResearchOptionDiagnosticsResponse(
                 option_fill_count=performance["option_diagnostics"]["option_fill_count"],
                 option_trade_count=performance["option_diagnostics"]["option_trade_count"],
                 call_trade_count=performance["option_diagnostics"]["call_trade_count"],
                 put_trade_count=performance["option_diagnostics"]["put_trade_count"],
-                winning_option_trade_count=performance["option_diagnostics"]["winning_option_trade_count"],
-                losing_option_trade_count=performance["option_diagnostics"]["losing_option_trade_count"],
+                winning_option_trade_count=performance["option_diagnostics"][
+                    "winning_option_trade_count"
+                ],
+                losing_option_trade_count=performance["option_diagnostics"][
+                    "losing_option_trade_count"
+                ],
                 option_net_pnl=performance["option_diagnostics"]["option_net_pnl"],
                 average_option_trade=performance["option_diagnostics"]["average_option_trade"],
                 expiry_day_trade_count=performance["option_diagnostics"]["expiry_day_trade_count"],
@@ -379,6 +405,23 @@ def _to_response(result) -> ResearchRunResponse:
             sortino_ratio=risk.sortino_ratio,
             downside_deviation=risk.downside_deviation,
             calmar_ratio=risk.calmar_ratio,
+            performance_period=ResearchPerformancePeriodResponse(
+                start_timestamp=result.performance.performance_period.start_timestamp,
+                end_timestamp=result.performance.performance_period.end_timestamp,
+                duration_seconds=(
+                    result.performance.performance_period.duration.total_seconds()
+                    if result.performance.performance_period.duration is not None
+                    else None
+                ),
+                cagr=result.performance.performance_period.cagr,
+                recovery_duration_seconds=(
+                    result.performance.performance_period.recovery_duration.total_seconds()
+                    if result.performance.performance_period.recovery_duration is not None
+                    else None
+                ),
+                recovery_timestamp=result.performance.performance_period.recovery_timestamp,
+                drawdown_recovered=result.performance.performance_period.drawdown_recovered,
+            ),
             trade_analytics=ResearchTradeAnalyticsResponse(
                 total_trades=result.performance.trade_analytics.total_trades,
                 average_trade=result.performance.trade_analytics.average_trade,
@@ -403,26 +446,16 @@ def _to_response(result) -> ResearchRunResponse:
                 exit_hour_distribution=list(
                     result.performance.behavior_diagnostics.exit_hour_distribution
                 ),
-                winning_trade_count=(
-                    result.performance.behavior_diagnostics.winning_trade_count
-                ),
-                losing_trade_count=(
-                    result.performance.behavior_diagnostics.losing_trade_count
-                ),
-                zero_pnl_trade_count=(
-                    result.performance.behavior_diagnostics.zero_pnl_trade_count
-                ),
+                winning_trade_count=(result.performance.behavior_diagnostics.winning_trade_count),
+                losing_trade_count=(result.performance.behavior_diagnostics.losing_trade_count),
+                zero_pnl_trade_count=(result.performance.behavior_diagnostics.zero_pnl_trade_count),
                 winning_pnl=result.performance.behavior_diagnostics.winning_pnl,
                 losing_pnl=result.performance.behavior_diagnostics.losing_pnl,
                 average_winning_trade=(
                     result.performance.behavior_diagnostics.average_winning_trade
                 ),
-                average_losing_trade=(
-                    result.performance.behavior_diagnostics.average_losing_trade
-                ),
-                loss_by_entry_hour=list(
-                    result.performance.behavior_diagnostics.loss_by_entry_hour
-                ),
+                average_losing_trade=(result.performance.behavior_diagnostics.average_losing_trade),
+                loss_by_entry_hour=list(result.performance.behavior_diagnostics.loss_by_entry_hour),
             ),
             behavior_findings=[
                 ResearchBehaviorFindingResponse(
@@ -474,12 +507,8 @@ def _to_response(result) -> ResearchRunResponse:
                     result.performance.option_diagnostics.pre_expiry_trade_count
                 ),
                 pre_expiry_net_pnl=result.performance.option_diagnostics.pre_expiry_net_pnl,
-                strike_distribution=list(
-                    result.performance.option_diagnostics.strike_distribution
-                ),
-                expiry_distribution=list(
-                    result.performance.option_diagnostics.expiry_distribution
-                ),
+                strike_distribution=list(result.performance.option_diagnostics.strike_distribution),
+                expiry_distribution=list(result.performance.option_diagnostics.expiry_distribution),
                 trades=[
                     ResearchOptionTradeEvidenceResponse(
                         group_id=trade.group_id,

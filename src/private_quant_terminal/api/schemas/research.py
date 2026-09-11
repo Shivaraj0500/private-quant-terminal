@@ -164,6 +164,16 @@ class ResearchRiskFindingResponse(BaseModel):
     evidence: str
 
 
+class ResearchPerformancePeriodResponse(BaseModel):
+    start_timestamp: datetime | None
+    end_timestamp: datetime | None
+    duration_seconds: float | None
+    cagr: float | None
+    recovery_duration_seconds: float | None
+    recovery_timestamp: datetime | None
+    drawdown_recovered: bool
+
+
 class ResearchPerformanceResponse(BaseModel):
     realized_pnl: float
     unrealized_pnl: float
@@ -187,6 +197,7 @@ class ResearchPerformanceResponse(BaseModel):
     risk_diagnostics: ResearchRiskDiagnosticsResponse
     risk_findings: list[ResearchRiskFindingResponse]
     option_diagnostics: ResearchOptionDiagnosticsResponse
+    performance_period: ResearchPerformancePeriodResponse
 
 
 class ResearchEquityPointResponse(BaseModel):
